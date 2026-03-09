@@ -1,4 +1,4 @@
-export const sampleSrt = `1
+﻿export const sampleSrt = `1
 00:00:02,000 --> 00:00:05,200
 \uC774 \uAE30\uB2A5\uC744 \uB123\uC73C\uBA74 \uD3B8\uC9D1 \uC2DC\uAC04\uC774 \uD06C\uAC8C \uC904\uC5B4\uB4ED\uB2C8\uB2E4.
 

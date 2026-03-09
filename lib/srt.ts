@@ -1,4 +1,4 @@
-export interface SubtitleSegment {
+﻿export interface SubtitleSegment {
   id: string;
   startMs: number;
   endMs: number;
@@ -19,6 +19,10 @@ export interface RecommendationDraft {
   visualCue: string;
   reason: string;
   timecode: string;
+}
+
+export interface RecommendationSettings {
+  frequencySeconds: number;
 }
 
 export interface ExportSettings {
@@ -128,23 +132,33 @@ function kindMeta(kind: RecommendationKind) {
   }
 }
 
-export function buildRecommendations(segments: SubtitleSegment[]) {
-  return segments.map((segment, index) => {
+export function buildRecommendations(segments: SubtitleSegment[], settings?: RecommendationSettings) {
+  const minGapMs = Math.max(1, settings?.frequencySeconds ?? 5) * 1000;
+  let lastSelectedStart = -Infinity;
+
+  return segments.flatMap((segment, index) => {
+    if (segment.startMs - lastSelectedStart < minGapMs) {
+      return [] as RecommendationDraft[];
+    }
+
     const kind = pickRecommendationKind(segment.text, index);
     const meta = kindMeta(kind);
     const visualCue = buildVisualCue(segment.text, kind);
+    lastSelectedStart = segment.startMs;
 
-    return {
-      id: `rec-${segment.id}`,
-      segmentId: segment.id,
-      kind,
-      label: meta.label,
-      title: segment.text.length > 44 ? `${segment.text.slice(0, 44)}...` : segment.text,
-      prompt: buildPrompt(segment.text, kind, visualCue),
-      visualCue,
-      reason: meta.reason,
-      timecode: segment.startTimecode
-    } satisfies RecommendationDraft;
+    return [
+      {
+        id: `rec-${segment.id}`,
+        segmentId: segment.id,
+        kind,
+        label: meta.label,
+        title: segment.text.length > 44 ? `${segment.text.slice(0, 44)}...` : segment.text,
+        prompt: buildPrompt(segment.text, kind, visualCue),
+        visualCue,
+        reason: meta.reason,
+        timecode: segment.startTimecode
+      } satisfies RecommendationDraft
+    ];
   });
 }
 

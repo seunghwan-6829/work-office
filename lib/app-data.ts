@@ -1,4 +1,4 @@
-import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+﻿import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient, tryCreateSupabaseBrowserClient } from "./supabase/client";
 
 export interface ProjectRecord {
@@ -74,6 +74,18 @@ function projectStorageKey(email: string) {
   return `premiere-projects:${email.toLowerCase()}`;
 }
 
+function normalizeProjectName(name: string, index: number) {
+  if (!name) {
+    return `프로젝트 ${index + 1}`;
+  }
+
+  if (/^new project\s*\d*$/i.test(name.trim()) || /^sample project$/i.test(name.trim())) {
+    return `프로젝트 ${index + 1}`;
+  }
+
+  return name;
+}
+
 export function loadProjects(email: string) {
   if (typeof window === "undefined") {
     return [] as ProjectRecord[];
@@ -86,7 +98,10 @@ export function loadProjects(email: string) {
   }
 
   try {
-    return JSON.parse(raw) as ProjectRecord[];
+    return (JSON.parse(raw) as ProjectRecord[]).map((project, index) => ({
+      ...project,
+      name: normalizeProjectName(project.name, index)
+    }));
   } catch {
     return [] as ProjectRecord[];
   }
@@ -115,7 +130,7 @@ export function createSampleProject() {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
-    name: "Sample Project",
+    name: "프로젝트 샘플",
     createdAt: now,
     updatedAt: now,
     srtText: `1\n00:00:02,000 --> 00:00:05,200\nThis feature can reduce editing time significantly.\n\n2\n00:00:05,800 --> 00:00:09,000\nAn illustration style works well for the example screen.\n\n3\n00:00:09,300 --> 00:00:13,000\nA short motion clip explains the final result more clearly.`

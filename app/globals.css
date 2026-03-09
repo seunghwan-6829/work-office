@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #f4f6fa;
   --bg-alt: #eef2f7;
   --surface: #ffffff;
@@ -477,5 +477,84 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
 
   .review-column {
     position: static;
+  }
+}
+
+.workspace-shell {
+  align-items: start;
+}
+
+.workspace-sidebar {
+  position: sticky;
+  top: 14px;
+  max-height: calc(100vh - 28px);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+.sidebar-section {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.project-list {
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+}
+
+.project-link,
+.sidebar-link,
+.button-block,
+.dashboard-card,
+.project-header,
+.project-banner,
+.workflow-section,
+.recommendation-panel,
+.sidebar-footer,
+.home-hero,
+.auth-card,
+.auth-hero {
+  box-sizing: border-box;
+}
+
+.auth-page {
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 420px);
+  column-gap: 72px;
+  padding-left: 48px;
+  padding-right: 48px;
+}
+
+.auth-hero {
+  max-width: 760px;
+}
+
+.auth-hero h1 {
+  line-height: 1.12;
+}
+
+.hero-title-line + .hero-title-line {
+  margin-top: 10px;
+}
+
+.options-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-block-wide {
+  grid-column: 1 / -1;
+}
+
+.review-column {
+  overflow: visible;
+}
+
+.review-list {
+  overflow: visible;
+}
+
+@media (max-width: 1280px) {
+  .workspace-sidebar {
+    position: static;
+    max-height: none;
   }
 }
