@@ -50,7 +50,7 @@ function toRecommendationState(segments: SubtitleSegment[]): RecommendationState
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat("ko-KR", {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -76,8 +76,9 @@ export default function DashboardApp() {
   const [segments, setSegments] = useState<SubtitleSegment[]>([]);
   const [recommendations, setRecommendations] = useState<RecommendationState[]>([]);
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
-  const [bannerMessage, setBannerMessage] = useState("Select a project to begin from SRT and move step by step.");
+  const [bannerMessage, setBannerMessage] = useState("프로젝트를 선택하면 SRT부터 순서대로 작업할 수 있습니다.");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -153,12 +154,12 @@ export default function DashboardApp() {
 
   async function handleAuthSubmit() {
     if (!supabaseReady) {
-      setAuthMessage(`Missing Supabase env: ${missingEnvKeys.join(", ")}`);
+      setAuthMessage(`Supabase 공개 설정이 부족합니다: ${missingEnvKeys.join(", ")}`);
       return;
     }
 
     if (!authEmail || !authPassword) {
-      setAuthMessage("Enter both email and password.");
+      setAuthMessage("이메일과 비밀번호를 모두 입력해 주세요.");
       return;
     }
 
@@ -170,16 +171,20 @@ export default function DashboardApp() {
       return;
     }
 
-    setAuthMessage(authMode === "signup" ? "Sign-up request sent. Check email if confirmation is enabled." : "Signed in.");
+    setAuthMessage(
+      authMode === "signup"
+        ? "회원가입 요청이 완료되었습니다. 이메일 확인이 필요한 경우 메일함을 확인해 주세요."
+        : "로그인되었습니다."
+    );
   }
 
   function handleCreateProject(withSample = false) {
-    const name = withSample ? "Sample Project" : `New Project ${projects.length + 1}`;
+    const name = withSample ? "샘플 프로젝트" : `새 프로젝트 ${projects.length + 1}`;
     const project = withSample ? createSampleProject() : createEmptyProject(name);
     const nextProjects = [project, ...projects];
     persistProjects(nextProjects);
     setSelectedProjectId(project.id);
-    setBannerMessage(`${project.name} created.`);
+    setBannerMessage(`${project.name}를 만들었습니다.`);
   }
 
   function updateProject(patch: Partial<ProjectRecord>) {
@@ -200,14 +205,14 @@ export default function DashboardApp() {
 
     const raw = await file.text();
     updateProject({ srtText: raw, name: selectedProject.name });
-    setBannerMessage(`${file.name} attached to ${selectedProject.name}.`);
+    setBannerMessage(`${file.name} 파일을 반영했습니다.`);
     event.target.value = "";
   }
 
   function applySrtText() {
     if (!selectedProject) return;
     updateProject({ srtText: selectedProject.srtText });
-    setBannerMessage("SRT saved into the project.");
+    setBannerMessage("SRT를 프로젝트에 저장했습니다.");
   }
 
   function updateProjectSrtText(value: string) {
@@ -220,7 +225,7 @@ export default function DashboardApp() {
 
   function handleGenerateRecommendations() {
     if (!selectedProject?.srtText) {
-      setBannerMessage("Add SRT first.");
+      setBannerMessage("먼저 SRT를 입력해 주세요.");
       return;
     }
 
@@ -228,9 +233,9 @@ export default function DashboardApp() {
       const parsed = parseSrt(selectedProject.srtText);
       setSegments(parsed);
       setRecommendations(toRecommendationState(parsed));
-      setBannerMessage(`${parsed.length} recommendation items generated.`);
+      setBannerMessage(`추천 항목 ${parsed.length}개를 만들었습니다.`);
     } catch (error) {
-      setBannerMessage(error instanceof Error ? error.message : "Failed to generate recommendations.");
+      setBannerMessage(error instanceof Error ? error.message : "추천 생성에 실패했습니다.");
     }
   }
 
@@ -248,7 +253,7 @@ export default function DashboardApp() {
     const targets = recommendations.filter((item) => item.decision === "selected");
 
     if (targets.length === 0) {
-      setBannerMessage("Choose at least one recommendation first.");
+      setBannerMessage("먼저 생성할 추천을 선택해 주세요.");
       return;
     }
 
@@ -258,7 +263,7 @@ export default function DashboardApp() {
         current.map((item) => (item.decision === "selected" ? { ...item, generated: true } : item))
       );
       setIsGenerating(false);
-      setBannerMessage(`${targets.length} selected items moved into generation-ready state.`);
+      setBannerMessage(`선택한 ${targets.length}개 항목을 생성 준비 상태로 전환했습니다.`);
     }, 900);
   }
 
@@ -267,7 +272,7 @@ export default function DashboardApp() {
 
     const selectedIds = recommendations.filter((item) => item.decision === "selected").map((item) => item.id);
     if (selectedIds.length === 0) {
-      setBannerMessage("No selected items to export.");
+      setBannerMessage("XML로 내보낼 항목이 없습니다.");
       return;
     }
 
@@ -279,17 +284,17 @@ export default function DashboardApp() {
     link.download = `${selectedProject.name || "premiere-project"}.xml`;
     link.click();
     URL.revokeObjectURL(url);
-    setBannerMessage("Premiere XML downloaded.");
+    setBannerMessage("Premiere XML을 다운로드했습니다.");
   }
 
   async function handleSignOut() {
     await signOut();
     setSelectedProjectId(null);
-    setBannerMessage("Signed out.");
+    setBannerMessage("로그아웃되었습니다.");
   }
 
   if (loadingAuth) {
-    return <div className="app-loading">Preparing workspace...</div>;
+    return <div className="app-loading">작업 공간을 준비하는 중입니다...</div>;
   }
 
   if (!session) {
@@ -297,37 +302,32 @@ export default function DashboardApp() {
       <main className="auth-page">
         <section className="auth-hero">
           <p className="auth-kicker">Premiere Automation</p>
-          <h1>Editing automation, organized by project.</h1>
-          <p>Sign in, open a project, attach SRT, and work step by step.</p>
-          <div className="auth-feature-list">
-            <span>Projects</span>
-            <span>Sidebar</span>
-            <span>Admin</span>
-          </div>
+          <h1>프로젝트 단위로 정리된 편집 자동화</h1>
+          <p>로그인 후 프로젝트를 만들고, SRT부터 순서대로 작업을 진행합니다.</p>
         </section>
 
-        <section className="auth-card glass-card">
+        <section className="auth-card panel-surface">
           <div className="auth-tabs">
-            <button className={authMode === "signin" ? "tab active" : "tab"} onClick={() => setAuthMode("signin")}>Sign in</button>
-            <button className={authMode === "signup" ? "tab active" : "tab"} onClick={() => setAuthMode("signup")}>Sign up</button>
+            <button className={authMode === "signin" ? "tab active" : "tab"} onClick={() => setAuthMode("signin")}>로그인</button>
+            <button className={authMode === "signup" ? "tab active" : "tab"} onClick={() => setAuthMode("signup")}>회원가입</button>
           </div>
 
-          <div className="auth-form">
+          <div className="auth-form compact-form">
             <label>
-              <span>Email</span>
+              <span>이메일</span>
               <input onChange={(event) => setAuthEmail(event.target.value)} type="email" value={authEmail} />
             </label>
             <label>
-              <span>Password</span>
+              <span>비밀번호</span>
               <input onChange={(event) => setAuthPassword(event.target.value)} type="password" value={authPassword} />
             </label>
             <button className="button button-primary button-block" onClick={handleAuthSubmit}>
-              {authMode === "signin" ? "Sign in" : "Create account"}
+              {authMode === "signin" ? "로그인" : "계정 만들기"}
             </button>
-            <p className="auth-message">{authMessage || "Use email + password to continue."}</p>
-            <div className="auth-meta">
-              <span>Admin: motiol_6829@naver.com</span>
-              {!supabaseReady ? <span>Env missing: {missingEnvKeys.join(", ")}</span> : <span>{projectRef || "Supabase"} ready</span>}
+            <p className="auth-message">{authMessage || "이메일과 비밀번호로 바로 시작할 수 있습니다."}</p>
+            <div className="auth-meta slim-meta">
+              <span>관리자: motiol_6829@naver.com</span>
+              <span>{supabaseReady ? `${projectRef || "Supabase"} 연결 준비 완료` : `설정 확인 필요: ${missingEnvKeys.join(", ")}`}</span>
             </div>
           </div>
         </section>
@@ -343,28 +343,28 @@ export default function DashboardApp() {
         <div className="sidebar-top">
           <div>
             <p className="sidebar-kicker">Premiere Automation</p>
-            <h2>Workspace</h2>
+            <h2>워크스페이스</h2>
           </div>
           <button className="button button-primary button-block" onClick={() => handleCreateProject(false)}>
-            New project
+            새 프로젝트
           </button>
         </div>
 
         <nav className="sidebar-nav">
           <button className={!selectedProjectId ? "sidebar-link active" : "sidebar-link"} onClick={() => setSelectedProjectId(null)}>
-            Home
+            홈
           </button>
           {isAdmin ? (
             <Link className="sidebar-link" href="/admin">
-              Admin page
+              관리자 페이지
             </Link>
           ) : null}
         </nav>
 
         <div className="sidebar-section">
           <div className="sidebar-section-header">
-            <span>Projects</span>
-            <button className="mini-button" onClick={() => handleCreateProject(true)}>Sample</button>
+            <span>프로젝트</span>
+            <button className="mini-button" onClick={() => handleCreateProject(true)}>샘플</button>
           </div>
 
           <div className="project-list">
@@ -380,125 +380,130 @@ export default function DashboardApp() {
                 </button>
               ))
             ) : (
-              <div className="sidebar-empty">No projects yet.</div>
+              <div className="sidebar-empty">프로젝트가 없습니다.</div>
             )}
           </div>
         </div>
 
-        <div className="sidebar-footer glass-card">
+        <div className="sidebar-footer panel-surface">
           <strong>{session.user.email}</strong>
-          <span>{supabaseReady ? `${projectRef} connected` : "Supabase env missing"}</span>
-          <button className="button button-secondary button-block" onClick={handleSignOut}>Sign out</button>
+          <span>{supabaseReady ? `${projectRef} 연결됨` : "Supabase 설정 확인 필요"}</span>
+          <button className="button button-secondary button-block" onClick={handleSignOut}>로그아웃</button>
         </div>
       </aside>
 
       <section className="workspace-main">
+        <div className="topbar">
+          <div>
+            <p className="section-kicker">Workspace</p>
+            <h1 className="topbar-title">{selectedProject ? selectedProject.name : "프로젝트 홈"}</h1>
+          </div>
+          <button className="icon-button" onClick={() => setIsSettingsOpen(true)} aria-label="설정 열기">
+            <span>+</span>
+            <small>설정</small>
+          </button>
+        </div>
+
         {!selectedProject ? (
           <div className="dashboard-stack">
-            <section className="home-hero glass-card">
+            <section className="home-hero panel-surface">
               <div>
-                <p className="section-kicker">Project Home</p>
-                <h1>Manage automation as independent projects</h1>
-                <p>
-                  The home screen only shows project context. Detailed editing tools appear after entering a project,
-                  so the interface stays focused instead of dumping every control at once.
-                </p>
+                <p className="section-kicker">프로젝트 홈</p>
+                <h2>프로젝트를 기준으로 작업 흐름을 나눴습니다</h2>
+                <p>홈에서는 프로젝트를 고르고, 상세 화면에서만 SRT와 추천 작업을 진행합니다.</p>
               </div>
               <div className="home-hero-actions">
-                <button className="button button-primary" onClick={() => handleCreateProject(false)}>Create blank project</button>
-                <button className="button button-secondary" onClick={() => handleCreateProject(true)}>Create sample project</button>
+                <button className="button button-primary" onClick={() => handleCreateProject(false)}>빈 프로젝트 만들기</button>
+                <button className="button button-secondary" onClick={() => handleCreateProject(true)}>샘플 프로젝트 만들기</button>
               </div>
             </section>
 
-            <section className="dashboard-grid">
-              <article className="dashboard-card glass-card">
-                <p className="section-kicker">Overview</p>
-                <h3>Total projects</h3>
-                <strong>{projects.length}</strong>
-                <p>Projects are managed per signed-in account.</p>
+            <section className="dashboard-grid compact-grid">
+              <article className="dashboard-card panel-surface">
+                <p className="section-kicker">개요</p>
+                <h3>전체 프로젝트</h3>
+                <strong>{projects.length}개</strong>
               </article>
-              <article className="dashboard-card glass-card">
-                <p className="section-kicker">Auth</p>
-                <h3>Current user</h3>
+              <article className="dashboard-card panel-surface">
+                <p className="section-kicker">계정</p>
+                <h3>현재 사용자</h3>
                 <strong>{session.user.email}</strong>
-                <p>{isAdmin ? "Admin access enabled" : "Standard member access"}</p>
               </article>
-              <article className="dashboard-card glass-card">
+              <article className="dashboard-card panel-surface">
                 <p className="section-kicker">Supabase</p>
-                <h3>Status</h3>
-                <strong>{supabaseReady ? "Ready" : "Check env"}</strong>
-                <p>{supabaseReady ? `${projectRef} is ready for auth` : missingEnvKeys.join(", ")}</p>
+                <h3>연결 상태</h3>
+                <strong>{supabaseReady ? "준비 완료" : "확인 필요"}</strong>
               </article>
             </section>
 
             <section className="project-gallery">
               {projects.length > 0 ? (
                 projects.map((project) => (
-                  <button className="project-card glass-card" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
+                  <button className="project-card panel-surface" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
                     <div>
-                      <p className="section-kicker">Project</p>
+                      <p className="section-kicker">프로젝트</p>
                       <h3>{project.name}</h3>
                     </div>
-                    <p>{project.srtText ? "SRT attached" : "No SRT yet"}</p>
+                    <p>{project.srtText ? "SRT 연결됨" : "SRT 없음"}</p>
                     <span>{formatDate(project.updatedAt)}</span>
                   </button>
                 ))
               ) : (
-                <div className="empty-state glass-card">
-                  <h3>No projects yet</h3>
-                  <p>Use the sidebar to create a blank project or a sample project.</p>
+                <div className="empty-state panel-surface">
+                  <h3>프로젝트가 없습니다</h3>
+                  <p>좌측에서 새 프로젝트를 만들거나 샘플 프로젝트로 시작해 보세요.</p>
                 </div>
               )}
             </section>
           </div>
         ) : (
           <div className="project-detail-stack">
-            <section className="project-header glass-card">
+            <section className="project-header panel-surface">
               <div>
-                <p className="section-kicker">Selected Project</p>
+                <p className="section-kicker">선택한 프로젝트</p>
                 <input className="project-title-input" onChange={(event) => updateProject({ name: event.target.value })} value={selectedProject.name} />
-                <p className="project-subcopy">Last updated {formatDate(selectedProject.updatedAt)}</p>
+                <p className="project-subcopy">최근 수정 {formatDate(selectedProject.updatedAt)}</p>
               </div>
-              <div className="project-header-stats">
-                <div><span>Segments</span><strong>{segments.length}</strong></div>
-                <div><span>Selected</span><strong>{selectedCount}</strong></div>
-                <div><span>Generated</span><strong>{generatedCount}</strong></div>
+              <div className="project-header-stats compact-stats">
+                <div><span>구간</span><strong>{segments.length}</strong></div>
+                <div><span>선택</span><strong>{selectedCount}</strong></div>
+                <div><span>생성</span><strong>{generatedCount}</strong></div>
               </div>
             </section>
 
-            <section className="project-banner glass-card">
-              <strong>Status</strong>
+            <section className="project-banner panel-surface">
+              <strong>현재 상태</strong>
               <p>{bannerMessage}</p>
             </section>
 
-            <section className="workflow-section glass-card">
+            <section className="workflow-section panel-surface">
               <div className="section-header">
                 <div>
-                  <p className="section-kicker">Step 1</p>
-                  <h2>SRT source</h2>
+                  <p className="section-kicker">1단계</p>
+                  <h2>SRT 입력</h2>
                 </div>
                 <div className="inline-actions">
-                  <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>Upload SRT</button>
-                  <button className="button button-primary" onClick={applySrtText}>Save SRT</button>
+                  <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>업로드</button>
+                  <button className="button button-primary" onClick={applySrtText}>저장</button>
                 </div>
               </div>
 
               <textarea
                 className="editor-textarea"
                 onChange={(event) => updateProjectSrtText(event.target.value)}
-                placeholder="Paste SRT here or upload a file."
+                placeholder="SRT를 붙여넣거나 파일을 업로드해 주세요."
                 value={selectedProject.srtText}
               />
             </section>
 
             {selectedProject.srtText ? (
-              <section className="workflow-section glass-card">
+              <section className="workflow-section panel-surface">
                 <div className="section-header">
                   <div>
-                    <p className="section-kicker">Step 2</p>
-                    <h2>Segment preview</h2>
+                    <p className="section-kicker">2단계</p>
+                    <h2>구간 확인</h2>
                   </div>
-                  <button className="button button-primary" onClick={handleGenerateRecommendations}>Generate recommendations</button>
+                  <button className="button button-primary" onClick={handleGenerateRecommendations}>추천 생성</button>
                 </div>
 
                 <div className="segment-list compact-list">
@@ -513,24 +518,24 @@ export default function DashboardApp() {
                       </div>
                     ))
                   ) : (
-                    <div className="empty-inline">Save the SRT first to parse timecoded segments.</div>
+                    <div className="empty-inline">SRT 저장 후 타임코드 구간이 표시됩니다.</div>
                   )}
                 </div>
               </section>
             ) : null}
 
             {recommendations.length > 0 ? (
-              <section className="workflow-section glass-card">
+              <section className="workflow-section panel-surface">
                 <div className="section-header">
                   <div>
-                    <p className="section-kicker">Step 3</p>
-                    <h2>Review recommendations</h2>
+                    <p className="section-kicker">3단계</p>
+                    <h2>추천 검수</h2>
                   </div>
                   <div className="inline-actions">
                     <button className="button button-secondary" disabled={isGenerating} onClick={handleGenerateAssets}>
-                      {isGenerating ? "Preparing..." : "Generate selected"}
+                      {isGenerating ? "준비 중..." : "선택 항목 생성"}
                     </button>
-                    <button className="button button-primary" onClick={handleExportXml}>Download XML</button>
+                    <button className="button button-primary" onClick={handleExportXml}>XML 다운로드</button>
                   </div>
                 </div>
 
@@ -546,46 +551,56 @@ export default function DashboardApp() {
                       <small>{item.reason}</small>
                       <div className="recommendation-actions">
                         <button className={item.decision === "selected" ? "button button-primary" : "button button-secondary"} onClick={() => updateDecision(item.id, item.decision === "selected" ? "pending" : "selected")}>
-                          {item.decision === "selected" ? "Selected" : "Select"}
+                          {item.decision === "selected" ? "선택됨" : "선택"}
                         </button>
-                        <button className="button" onClick={() => updateDecision(item.id, "excluded")}>Exclude</button>
+                        <button className="button" onClick={() => updateDecision(item.id, "excluded")}>제외</button>
                       </div>
                       <div className="recommendation-footer">
-                        <span>{item.generated ? "Ready" : "Pending"}</span>
-                        <span>Segment {item.segmentId}</span>
+                        <span>{item.generated ? "생성 준비 완료" : "생성 전"}</span>
+                        <span>세그먼트 {item.segmentId}</span>
                       </div>
                     </article>
                   ))}
                 </div>
               </section>
             ) : null}
-
-            <section className="workflow-section glass-card">
-              <div className="section-header">
-                <div>
-                  <p className="section-kicker">Settings</p>
-                  <h2>Provider keys</h2>
-                </div>
-              </div>
-
-              <div className="settings-grid">
-                {mockApiKeyFields.map((field) => (
-                  <label className="settings-block" key={field.id}>
-                    <span>{field.label}</span>
-                    <input
-                      onChange={(event) => setApiKeys((current) => ({ ...current, [field.id]: event.target.value }))}
-                      placeholder={field.placeholder}
-                      type="password"
-                      value={apiKeys[field.id] ?? ""}
-                    />
-                    <small>{field.help}</small>
-                  </label>
-                ))}
-              </div>
-            </section>
           </div>
         )}
       </section>
+
+      {isSettingsOpen ? (
+        <div className="modal-backdrop" onClick={() => setIsSettingsOpen(false)}>
+          <div className="modal-panel panel-surface" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="section-kicker">설정</p>
+                <h2>프로바이더 키</h2>
+              </div>
+              <button className="button button-secondary" onClick={() => setIsSettingsOpen(false)}>닫기</button>
+            </div>
+
+            <div className="settings-grid single-column-grid">
+              {mockApiKeyFields.map((field) => (
+                <label className="settings-block" key={field.id}>
+                  <span>{field.label}</span>
+                  <input
+                    onChange={(event) => setApiKeys((current) => ({ ...current, [field.id]: event.target.value }))}
+                    placeholder={field.placeholder}
+                    type="password"
+                    value={apiKeys[field.id] ?? ""}
+                  />
+                  <small>{field.help}</small>
+                </label>
+              ))}
+            </div>
+
+            <div className="modal-footer">
+              <span>{supabaseReady ? `${projectRef} 연결 준비 완료` : "Supabase 공개 설정 확인 필요"}</span>
+              <button className="button button-primary" onClick={() => setIsSettingsOpen(false)}>저장</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

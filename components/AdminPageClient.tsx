@@ -34,18 +34,16 @@ export default function AdminPageClient() {
   }, [session?.user.email]);
 
   if (loading) {
-    return <div className="app-loading">Preparing admin workspace...</div>;
+    return <div className="app-loading">관리자 화면을 준비하는 중입니다...</div>;
   }
 
   if (!session) {
     return (
       <main className="admin-page-shell">
-        <div className="admin-guard glass-card">
-          <h1>Sign in required</h1>
-          <p>The admin page is available only after login.</p>
-          <Link className="button button-primary" href="/">
-            Back to home
-          </Link>
+        <div className="admin-guard panel-surface">
+          <h1>로그인이 필요합니다</h1>
+          <p>관리자 페이지는 로그인한 상태에서만 접근할 수 있습니다.</p>
+          <Link className="button button-primary" href="/">홈으로 이동</Link>
         </div>
       </main>
     );
@@ -54,14 +52,10 @@ export default function AdminPageClient() {
   if (!isAdminEmail(session.user.email)) {
     return (
       <main className="admin-page-shell">
-        <div className="admin-guard glass-card">
-          <h1>Admin access denied</h1>
-          <p>
-            Current account: <strong>{session.user.email}</strong>. Admin email: <strong>{ADMIN_EMAIL}</strong>.
-          </p>
-          <Link className="button button-primary" href="/">
-            Back to workspace
-          </Link>
+        <div className="admin-guard panel-surface">
+          <h1>관리자 권한이 없습니다</h1>
+          <p>현재 계정: <strong>{session.user.email}</strong> / 관리자 이메일: <strong>{ADMIN_EMAIL}</strong></p>
+          <Link className="button button-primary" href="/">워크스페이스로 돌아가기</Link>
         </div>
       </main>
     );
@@ -69,40 +63,34 @@ export default function AdminPageClient() {
 
   return (
     <main className="admin-page-shell">
-      <section className="admin-header glass-card">
+      <section className="admin-header panel-surface">
         <div>
-          <p className="section-kicker">Admin</p>
-          <h1>Control center</h1>
-          <p>Admin-only view for checking environment status, user context, and project counts.</p>
+          <p className="section-kicker">관리자</p>
+          <h1>운영 상태 확인</h1>
+          <p>관리자 전용 페이지입니다. 현재는 환경 상태와 프로젝트 수를 확인할 수 있습니다.</p>
         </div>
         <div className="inline-actions">
-          <Link className="button button-secondary" href="/">
-            Workspace
-          </Link>
-          <button className="button button-primary" onClick={() => signOut()}>
-            Sign out
-          </button>
+          <Link className="button button-secondary" href="/">워크스페이스</Link>
+          <button className="button button-primary" onClick={() => signOut()}>로그아웃</button>
         </div>
       </section>
 
-      <section className="admin-grid">
-        <article className="dashboard-card glass-card">
-          <p className="section-kicker">Viewer</p>
-          <h3>Active admin</h3>
+      <section className="admin-grid compact-grid">
+        <article className="dashboard-card panel-surface">
+          <p className="section-kicker">계정</p>
+          <h3>현재 관리자</h3>
           <strong>{session.user.email}</strong>
-          <p>This email is currently whitelisted for admin access.</p>
         </article>
-        <article className="dashboard-card glass-card">
+        <article className="dashboard-card panel-surface">
           <p className="section-kicker">Supabase</p>
-          <h3>Connection status</h3>
-          <strong>{missingEnvKeys.length === 0 ? "Ready" : "Check env"}</strong>
-          <p>{missingEnvKeys.length === 0 ? `${projectRef} is ready` : missingEnvKeys.join(", ")}</p>
+          <h3>연결 상태</h3>
+          <strong>{missingEnvKeys.length === 0 ? "준비 완료" : "확인 필요"}</strong>
+          <p>{missingEnvKeys.length === 0 ? `${projectRef} 연결 준비 완료` : missingEnvKeys.join(", ")}</p>
         </article>
-        <article className="dashboard-card glass-card">
-          <p className="section-kicker">Projects</p>
-          <h3>Project count</h3>
-          <strong>{projectCount}</strong>
-          <p>Current count is based on local projects for the signed-in account.</p>
+        <article className="dashboard-card panel-surface">
+          <p className="section-kicker">프로젝트</p>
+          <h3>현재 개수</h3>
+          <strong>{projectCount}개</strong>
         </article>
       </section>
     </main>
