@@ -79,6 +79,7 @@ export default function DashboardApp() {
   const [bannerMessage, setBannerMessage] = useState("프로젝트를 선택하면 SRT부터 순서대로 작업할 수 있습니다.");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSrtModalOpen, setIsSrtModalOpen] = useState(false);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -142,7 +143,6 @@ export default function DashboardApp() {
 
     const parsedSegments = selectedProject.srtText ? parseSrt(selectedProject.srtText) : [];
     setSegments(parsedSegments);
-    setRecommendations(parsedSegments.length > 0 ? toRecommendationState(parsedSegments) : []);
   }, [selectedProject]);
 
   function persistProjects(nextProjects: ProjectRecord[]) {
@@ -184,6 +184,7 @@ export default function DashboardApp() {
     const nextProjects = [project, ...projects];
     persistProjects(nextProjects);
     setSelectedProjectId(project.id);
+    setRecommendations([]);
     setBannerMessage(`${project.name}를 만들었습니다.`);
   }
 
@@ -211,8 +212,17 @@ export default function DashboardApp() {
 
   function applySrtText() {
     if (!selectedProject) return;
-    updateProject({ srtText: selectedProject.srtText });
-    setBannerMessage("SRT를 프로젝트에 저장했습니다.");
+
+    try {
+      const parsed = parseSrt(selectedProject.srtText);
+      setSegments(parsed);
+      setRecommendations([]);
+      updateProject({ srtText: selectedProject.srtText });
+      setBannerMessage(`SRT를 저장했고 ${parsed.length}개 구간을 확인했습니다.`);
+      setIsSrtModalOpen(false);
+    } catch (error) {
+      setBannerMessage(error instanceof Error ? error.message : "SRT 처리에 실패했습니다.");
+    }
   }
 
   function updateProjectSrtText(value: string) {
@@ -235,7 +245,7 @@ export default function DashboardApp() {
       setRecommendations(toRecommendationState(parsed));
       setBannerMessage(`추천 항목 ${parsed.length}개를 만들었습니다.`);
     } catch (error) {
-      setBannerMessage(error instanceof Error ? error.message : "추천 생성에 실패했습니다.");
+      setBannerMessage(error instanceof Error ? error.message : "AI 자동 분류에 실패했습니다.");
     }
   }
 
@@ -435,82 +445,64 @@ export default function DashboardApp() {
                 <strong>{supabaseReady ? "준비 완료" : "확인 필요"}</strong>
               </article>
             </section>
-
-            <section className="project-gallery">
-              {projects.length > 0 ? (
-                projects.map((project) => (
-                  <button className="project-card panel-surface" key={project.id} onClick={() => setSelectedProjectId(project.id)}>
-                    <div>
-                      <p className="section-kicker">프로젝트</p>
-                      <h3>{project.name}</h3>
-                    </div>
-                    <p>{project.srtText ? "SRT 연결됨" : "SRT 없음"}</p>
-                    <span>{formatDate(project.updatedAt)}</span>
-                  </button>
-                ))
-              ) : (
-                <div className="empty-state panel-surface">
-                  <h3>프로젝트가 없습니다</h3>
-                  <p>좌측에서 새 프로젝트를 만들거나 샘플 프로젝트로 시작해 보세요.</p>
-                </div>
-              )}
-            </section>
           </div>
         ) : (
-          <div className="project-detail-stack">
-            <section className="project-header panel-surface">
-              <div>
-                <p className="section-kicker">선택한 프로젝트</p>
-                <input className="project-title-input" onChange={(event) => updateProject({ name: event.target.value })} value={selectedProject.name} />
-                <p className="project-subcopy">최근 수정 {formatDate(selectedProject.updatedAt)}</p>
-              </div>
-              <div className="project-header-stats compact-stats">
-                <div><span>구간</span><strong>{segments.length}</strong></div>
-                <div><span>선택</span><strong>{selectedCount}</strong></div>
-                <div><span>생성</span><strong>{generatedCount}</strong></div>
-              </div>
-            </section>
-
-            <section className="project-banner panel-surface">
-              <strong>현재 상태</strong>
-              <p>{bannerMessage}</p>
-            </section>
-
-            <section className="workflow-section panel-surface">
-              <div className="section-header">
+          <div className="project-workboard">
+            <div className="project-main-column">
+              <section className="project-header panel-surface">
                 <div>
-                  <p className="section-kicker">1단계</p>
-                  <h2>SRT 입력</h2>
+                  <p className="section-kicker">선택한 프로젝트</p>
+                  <input className="project-title-input" onChange={(event) => updateProject({ name: event.target.value })} value={selectedProject.name} />
+                  <p className="project-subcopy">최근 수정 {formatDate(selectedProject.updatedAt)}</p>
                 </div>
-                <div className="inline-actions">
-                  <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>업로드</button>
-                  <button className="button button-primary" onClick={applySrtText}>저장</button>
+                <div className="project-header-stats compact-stats">
+                  <div><span>구간</span><strong>{segments.length}</strong></div>
+                  <div><span>선택</span><strong>{selectedCount}</strong></div>
+                  <div><span>생성</span><strong>{generatedCount}</strong></div>
                 </div>
-              </div>
+              </section>
 
-              <textarea
-                className="editor-textarea"
-                onChange={(event) => updateProjectSrtText(event.target.value)}
-                placeholder="SRT를 붙여넣거나 파일을 업로드해 주세요."
-                value={selectedProject.srtText}
-              />
-            </section>
+              <section className="project-banner panel-surface">
+                <strong>현재 상태</strong>
+                <p>{bannerMessage}</p>
+              </section>
 
-            {selectedProject.srtText ? (
+              <section className="workflow-section panel-surface">
+                <div className="section-header">
+                  <div>
+                    <p className="section-kicker">1단계</p>
+                    <h2>SRT 입력</h2>
+                  </div>
+                  <div className="inline-actions">
+                    <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>파일 업로드</button>
+                    <button className="button button-primary" onClick={() => setIsSrtModalOpen(true)}>SRT 열기</button>
+                  </div>
+                </div>
+
+                <div className="compact-srt-entry">
+                  <strong>{selectedProject.srtText ? "SRT가 연결되어 있습니다." : "아직 SRT가 없습니다."}</strong>
+                  <p>
+                    {selectedProject.srtText
+                      ? `${segments.length}개 구간이 확인되었습니다. 필요하면 팝업에서 내용을 수정할 수 있습니다.`
+                      : "SRT를 붙여넣거나 업로드한 뒤 저장해 주세요."}
+                  </p>
+                </div>
+              </section>
+
               <section className="workflow-section panel-surface">
                 <div className="section-header">
                   <div>
                     <p className="section-kicker">2단계</p>
                     <h2>구간 확인</h2>
                   </div>
-                  <button className="button button-primary" onClick={handleGenerateRecommendations}>추천 생성</button>
+                  <button className="button button-primary" onClick={handleGenerateRecommendations}>AI 자동 분류</button>
                 </div>
 
-                <div className="segment-list compact-list">
+                <div className="segment-list">
                   {segments.length > 0 ? (
                     segments.map((segment) => (
-                      <div className="segment-card" key={segment.id}>
-                        <div>
+                      <div className="segment-card segment-card-wide" key={segment.id}>
+                        <div className="segment-index-row">
                           <strong>{segment.id}</strong>
                           <span>{segment.startTimecode} - {segment.endTimecode}</span>
                         </div>
@@ -518,52 +510,59 @@ export default function DashboardApp() {
                       </div>
                     ))
                   ) : (
-                    <div className="empty-inline">SRT 저장 후 타임코드 구간이 표시됩니다.</div>
+                    <div className="empty-inline">SRT를 저장하면 여기에 타임코드 구간이 표시됩니다.</div>
                   )}
                 </div>
               </section>
-            ) : null}
+            </div>
 
-            {recommendations.length > 0 ? (
-              <section className="workflow-section panel-surface">
-                <div className="section-header">
-                  <div>
-                    <p className="section-kicker">3단계</p>
-                    <h2>추천 검수</h2>
-                  </div>
-                  <div className="inline-actions">
-                    <button className="button button-secondary" disabled={isGenerating} onClick={handleGenerateAssets}>
-                      {isGenerating ? "준비 중..." : "선택 항목 생성"}
-                    </button>
-                    <button className="button button-primary" onClick={handleExportXml}>XML 다운로드</button>
+            <aside className="review-column panel-surface">
+              <div className="section-header review-header">
+                <div>
+                  <p className="section-kicker">3단계</p>
+                  <h2>추천 검수</h2>
+                </div>
+                <div className="inline-actions">
+                  <button className="button button-secondary" disabled={isGenerating} onClick={handleGenerateAssets}>
+                    {isGenerating ? "준비 중..." : "선택 항목 생성"}
+                  </button>
+                  <button className="button button-primary" onClick={handleExportXml}>XML 다운로드</button>
+                </div>
+              </div>
+
+              {recommendations.length > 0 ? (
+                <div className="review-scroll">
+                  <div className="recommendation-grid single-column-grid">
+                    {recommendations.filter((item) => item.decision !== "excluded").map((item) => (
+                      <article className="recommendation-panel" key={item.id}>
+                        <div className="recommendation-topline">
+                          <span className={`badge ${kindClassMap[item.kind]}`}>{item.label}</span>
+                          <span>{item.timecode}</span>
+                        </div>
+                        <h3>{item.title}</h3>
+                        <p>{item.prompt}</p>
+                        <small>{item.reason}</small>
+                        <div className="recommendation-actions">
+                          <button className={item.decision === "selected" ? "button button-primary" : "button button-secondary"} onClick={() => updateDecision(item.id, item.decision === "selected" ? "pending" : "selected")}>
+                            {item.decision === "selected" ? "선택됨" : "선택"}
+                          </button>
+                          <button className="button" onClick={() => updateDecision(item.id, "excluded")}>제외</button>
+                        </div>
+                        <div className="recommendation-footer">
+                          <span>{item.generated ? "생성 준비 완료" : "생성 전"}</span>
+                          <span>세그먼트 {item.segmentId}</span>
+                        </div>
+                      </article>
+                    ))}
                   </div>
                 </div>
-
-                <div className="recommendation-grid">
-                  {recommendations.filter((item) => item.decision !== "excluded").map((item) => (
-                    <article className="recommendation-panel" key={item.id}>
-                      <div className="recommendation-topline">
-                        <span className={`badge ${kindClassMap[item.kind]}`}>{item.label}</span>
-                        <span>{item.timecode}</span>
-                      </div>
-                      <h3>{item.title}</h3>
-                      <p>{item.prompt}</p>
-                      <small>{item.reason}</small>
-                      <div className="recommendation-actions">
-                        <button className={item.decision === "selected" ? "button button-primary" : "button button-secondary"} onClick={() => updateDecision(item.id, item.decision === "selected" ? "pending" : "selected")}>
-                          {item.decision === "selected" ? "선택됨" : "선택"}
-                        </button>
-                        <button className="button" onClick={() => updateDecision(item.id, "excluded")}>제외</button>
-                      </div>
-                      <div className="recommendation-footer">
-                        <span>{item.generated ? "생성 준비 완료" : "생성 전"}</span>
-                        <span>세그먼트 {item.segmentId}</span>
-                      </div>
-                    </article>
-                  ))}
+              ) : (
+                <div className="review-empty">
+                  <strong>추천 항목이 아직 없습니다.</strong>
+                  <p>좌측의 `AI 자동 분류` 버튼을 누르면 여기에 추천 검수 카드가 표시됩니다.</p>
                 </div>
-              </section>
-            ) : null}
+              )}
+            </aside>
           </div>
         )}
       </section>
@@ -598,6 +597,30 @@ export default function DashboardApp() {
               <span>{supabaseReady ? `${projectRef} 연결 준비 완료` : "Supabase 공개 설정 확인 필요"}</span>
               <button className="button button-primary" onClick={() => setIsSettingsOpen(false)}>저장</button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isSrtModalOpen && selectedProject ? (
+        <div className="modal-backdrop" onClick={() => setIsSrtModalOpen(false)}>
+          <div className="modal-panel modal-panel-wide panel-surface" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="section-kicker">SRT 입력</p>
+                <h2>{selectedProject.name}</h2>
+              </div>
+              <div className="inline-actions">
+                <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>업로드</button>
+                <button className="button button-primary" onClick={applySrtText}>저장</button>
+              </div>
+            </div>
+
+            <textarea
+              className="editor-textarea editor-textarea-large"
+              onChange={(event) => updateProjectSrtText(event.target.value)}
+              placeholder="SRT를 붙여넣거나 파일을 업로드해 주세요."
+              value={selectedProject.srtText}
+            />
           </div>
         </div>
       ) : null}
