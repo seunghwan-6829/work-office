@@ -59,6 +59,8 @@ const T = {
   projectHome: "\uD504\uB85C\uC81D\uD2B8 \uD648",
   homeTitle: "\uD504\uB85C\uC81D\uD2B8\uB97C \uAE30\uC900\uC73C\uB85C \uC791\uC5C5 \uD750\uB984\uC744 \uB098\uB220\uC11C \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
   homeCopy: "\uC67C\uCABD\uC5D0\uC11C \uD504\uB85C\uC81D\uD2B8\uB97C \uACE0\uB974\uACE0, \uC0C1\uC138 \uD654\uBA74\uC5D0\uC11C\uB9CC SRT \uC785\uB825\uACFC \uAC80\uC218\uB97C \uC9C4\uD589\uD558\uB3C4\uB85D \uC815\uB9AC\uD588\uC2B5\uB2C8\uB2E4.",
+  overview: "\uAC1C\uC694",
+  account: "\uACC4\uC815",
   newProject: "\uC0C8 \uD504\uB85C\uC81D\uD2B8",
   sampleProject: "\uC0D8\uD50C \uD504\uB85C\uC81D\uD2B8",
   allProjects: "\uC804\uCCB4 \uD504\uB85C\uC81D\uD2B8",
@@ -444,14 +446,14 @@ export default function DashboardApp() {
         </div>
         <div className="sidebar-footer panel-surface">
           <strong>{session.user.email}</strong>
-          <span>{supabaseReady ? `${projectRef} ${T.ready}` : "Supabase settings required"}</span>
+          <span>{supabaseReady ? `${projectRef} ${T.ready}` : "Supabase 以鍮??뺤씤 ?꾩슂"}</span>
           <button className="button button-secondary button-block" onClick={handleSignOut}>{T.logout}</button>
         </div>
       </aside>
       <section className="workspace-main">
         <div className="topbar">
           <div>
-            <p className="section-kicker">Workspace</p>
+            <p className="section-kicker">?뚰겕?ㅽ럹?댁뒪</p>
             <h1 className="topbar-title">{selectedProject ? selectedProject.name : T.projectHome}</h1>
           </div>
           <button className="icon-button" aria-label={T.settings} onClick={() => setIsSettingsOpen(true)}><span>+</span><small>{T.settings}</small></button>
@@ -471,8 +473,8 @@ export default function DashboardApp() {
               </div>
             </section>
             <section className="dashboard-grid compact-grid">
-              <article className="dashboard-card panel-surface"><p className="section-kicker">\uAC1C\uC694</p><h3>{T.allProjects}</h3><strong>{projects.length}\uAC1C</strong></article>
-              <article className="dashboard-card panel-surface"><p className="section-kicker">\uACC4\uC815</p><h3>{T.currentUser}</h3><strong>{session.user.email}</strong></article>
+              <article className="dashboard-card panel-surface"><p className="section-kicker">{T.overview}</p><h3>{T.allProjects}</h3><strong>{projects.length}\uAC1C</strong></article>
+              <article className="dashboard-card panel-surface"><p className="section-kicker">{T.account}</p><h3>{T.currentUser}</h3><strong>{session.user.email}</strong></article>
               <article className="dashboard-card panel-surface"><p className="section-kicker">Supabase</p><h3>{T.connectionState}</h3><strong>{supabaseReady ? T.ready : T.checkNeeded}</strong></article>
             </section>
           </div>
@@ -526,8 +528,8 @@ export default function DashboardApp() {
                   <label className="settings-block"><span>{T.aspectRatio}</span><input value={aspectRatio} onChange={(event) => setAspectRatio(event.target.value)} /><small>\uC608: 16:9, 9:16, 1:1\uCC98\uB7FC \uC6D0\uD558\uB294 \uBE44\uC728\uC744 \uC9C1\uC811 \uC801\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</small></label>
                 </div>
               </section>
-              <section className="workflow-section panel-surface"><div className="section-header"><div><p className="section-kicker">{T.secondReviewStep}</p><h2>{T.secondReview}</h2></div></div><div className="stage-placeholder"><strong>MOGRT \uC790\uB9C9 \uD22C\uC785 \uAD6C\uAC04 \uCD94\uCC9C \uB2E8\uACC4</strong><p>\uD604\uC7AC\uB294 \uC774\uBBF8\uC9C0\uC640 \uC601\uC0C1 \uD6C4\uBCF4\uB97C \uBA3C\uC800 \uC815\uB9AC\uD558\uB294 \uB2E8\uACC4\uC785\uB2C8\uB2E4.</p></div></section>
-              <section className="workflow-section panel-surface"><div className="section-header"><div><p className="section-kicker">{T.finalPrepStep}</p><h2>{T.finalPrep}</h2></div></div><div className="stage-placeholder"><strong>\uC624\uB978\uCABD \uAC80\uC218\uD310\uC5D0\uC11C \uD56D\uBAA9\uBCC4 \uD615\uC2DD\uACFC \uC124\uBA85\uC744 \uAC1C\uBCC4 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.</strong><p>\uB300\uBCF8 \uBB38\uC7A5\uACFC \uCD94\uCC9C \uC124\uBA85\uC758 \uBC30\uACBD\uC744 \uBD84\uB9AC\uD574 \uB450\uC5C8\uC2B5\uB2C8\uB2E4.</p></div></section>
+              <section className="workflow-section panel-surface"><div className="section-header"><div><p className="section-kicker">{T.secondReviewStep}</p><h2>{T.secondReview}</h2></div></div><div className="stage-placeholder"><strong>{"MOGRT \uC790\uB9C9 \uD22C\uC785 \uAD6C\uAC04 \uCD94\uCC9C \uB2E8\uACC4"}</strong><p>{"\uD604\uC7AC\uB294 \uC774\uBBF8\uC9C0\uC640 \uC601\uC0C1 \uD6C4\uBCF4\uB97C \uBA3C\uC800 \uC815\uB9AC\uD558\uB294 \uB2E8\uACC4\uC785\uB2C8\uB2E4."}</p></div></section>
+              <section className="workflow-section panel-surface"><div className="section-header"><div><p className="section-kicker">{T.finalPrepStep}</p><h2>{T.finalPrep}</h2></div></div><div className="stage-placeholder"><strong>{"\uC624\uB978\uCABD \uAC80\uC218\uD310\uC5D0\uC11C \uD56D\uBAA9\uBCC4 \uD615\uC2DD\uACFC \uC124\uBA85\uC744 \uAC1C\uBCC4 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."}</strong><p>{"\uB300\uBCF8 \uBB38\uC7A5\uACFC \uCD94\uCC9C \uC124\uBA85\uC758 \uBC30\uACBD\uC744 \uBD84\uB9AC\uD574 \uB450\uC5C8\uC2B5\uB2C8\uB2E4."}</p></div></section>
             </div>
             <aside className="review-column panel-surface">
               <div className="section-header review-header">
@@ -550,13 +552,13 @@ export default function DashboardApp() {
                   <div className="recommendation-actions"><button className={item.decision === "selected" ? "button button-primary" : "button button-secondary"} onClick={() => updateDecision(item.id, item.decision === "selected" ? "pending" : "selected")}>{item.decision === "selected" ? T.selected : T.select}</button><button className="button" onClick={() => updateDecision(item.id, "excluded")}>{T.exclude}</button></div>
                   <div className="recommendation-footer"><span>{item.generated ? T.readyToGenerate : T.beforeGeneration}</span><span>{T.segmentLabel} {item.segmentId}</span></div>
                 </article>
-              ))}</div> : <div className="review-empty"><strong>{T.recommendationEmpty}</strong><p>`{T.autoClassify}` \uBC84\uD2BC\uC744 \uB204\uB974\uBA74 \uC774 \uC601\uC5ED\uC5D0 \uACB0\uACFC\uAC00 \uCC44\uC6CC\uC9D1\uB2C8\uB2E4.</p><p>\uD604\uC7AC \uB2E8\uACC4\uC5D0\uC11C\uB294 \uC774\uBBF8\uC9C0\uC640 \uC601\uC0C1 \uD615\uC2DD\uB9CC \uB2E4\uB8E8\uACE0, MOGRT \uCD94\uCC9C\uC740 \uB2E4\uC74C \uAC80\uC218 \uB2E8\uACC4\uB85C \uBD84\uB9AC\uB429\uB2C8\uB2E4.</p></div>}
+              ))}</div> : <div className="review-empty"><strong>{T.recommendationEmpty}</strong><p>{`\`${T.autoClassify}\` \uBC84\uD2BC\uC744 \uB204\uB974\uBA74 \uC774 \uC601\uC5ED\uC5D0 \uACB0\uACFC\uAC00 \uCC44\uC6CC\uC9D1\uB2C8\uB2E4.`}</p><p>{"\uD604\uC7AC \uB2E8\uACC4\uC5D0\uC11C\uB294 \uC774\uBBF8\uC9C0\uC640 \uC601\uC0C1 \uD615\uC2DD\uB9CC \uB2E4\uB8E8\uACE0, MOGRT \uCD94\uCC9C\uC740 \uB2E4\uC74C \uAC80\uC218 \uB2E8\uACC4\uB85C \uBD84\uB9AC\uB429\uB2C8\uB2E4."}</p></div>}
             </aside>
           </div>
         )}
       </section>
-      {isSettingsOpen ? <div className="modal-backdrop" onClick={() => setIsSettingsOpen(false)}><div className="modal-panel panel-surface" onClick={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="section-kicker">{T.settings}</p><h2>{T.providerKeys}</h2></div><button className="button button-secondary" onClick={() => setIsSettingsOpen(false)}>{T.close}</button></div><div className="settings-grid single-column-grid">{mockApiKeyFields.map((field) => <label className="settings-block" key={field.id}><span>{field.label}</span><input type="password" placeholder={field.placeholder} value={apiKeys[field.id] ?? ""} onChange={(event) => setApiKeys((current) => ({ ...current, [field.id]: event.target.value }))} /><small>{field.help}</small></label>)}</div><div className="modal-footer"><span>{supabaseReady ? `${projectRef} ${T.ready}` : "Supabase settings required"}</span><button className="button button-primary" onClick={() => setIsSettingsOpen(false)}>{T.save}</button></div></div></div> : null}
-      {isSrtModalOpen && selectedProject ? <div className="modal-backdrop" onClick={() => setIsSrtModalOpen(false)}><div className="modal-panel modal-panel-wide panel-surface" onClick={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="section-kicker">{T.srtInput}</p><h2>{selectedProject.name}</h2></div><div className="inline-actions"><button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>{T.upload}</button><button className="button button-primary" onClick={applySrtText}>{T.save}</button></div></div><textarea className="editor-textarea editor-textarea-large" placeholder="SRT contents" value={selectedProject.srtText} onChange={(event) => updateProjectSrtText(event.target.value)} /></div></div> : null}
+      {isSettingsOpen ? <div className="modal-backdrop" onClick={() => setIsSettingsOpen(false)}><div className="modal-panel panel-surface" onClick={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="section-kicker">{T.settings}</p><h2>{T.providerKeys}</h2></div><button className="button button-secondary" onClick={() => setIsSettingsOpen(false)}>{T.close}</button></div><div className="settings-grid single-column-grid">{mockApiKeyFields.map((field) => <label className="settings-block" key={field.id}><span>{field.label}</span><input type="password" placeholder={field.placeholder} value={apiKeys[field.id] ?? ""} onChange={(event) => setApiKeys((current) => ({ ...current, [field.id]: event.target.value }))} /><small>{field.help}</small></label>)}</div><div className="modal-footer"><span>{supabaseReady ? `${projectRef} ${T.ready}` : "Supabase 以鍮??뺤씤 ?꾩슂"}</span><button className="button button-primary" onClick={() => setIsSettingsOpen(false)}>{T.save}</button></div></div></div> : null}
+      {isSrtModalOpen && selectedProject ? <div className="modal-backdrop" onClick={() => setIsSrtModalOpen(false)}><div className="modal-panel modal-panel-wide panel-surface" onClick={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="section-kicker">{T.srtInput}</p><h2>{selectedProject.name}</h2></div><div className="inline-actions"><button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>{T.upload}</button><button className="button button-primary" onClick={applySrtText}>{T.save}</button></div></div><textarea className="editor-textarea editor-textarea-large" placeholder="SRT ?댁슜??遺숈뿬?ｌ뼱 二쇱꽭??" value={selectedProject.srtText} onChange={(event) => updateProjectSrtText(event.target.value)} /></div></div> : null}
     </main>
   );
 }

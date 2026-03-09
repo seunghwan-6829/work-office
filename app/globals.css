@@ -408,3 +408,74 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+.workspace-sidebar {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar-top,
+.sidebar-nav,
+.sidebar-section,
+.project-list,
+.sidebar-footer,
+.workspace-main,
+.project-main-column,
+.review-column,
+.project-workboard {
+  min-width: 0;
+}
+
+.sidebar-footer {
+  width: 100%;
+}
+
+.project-link,
+.sidebar-link,
+.button-block {
+  max-width: 100%;
+}
+
+.project-workboard {
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+  align-items: start;
+}
+
+.review-column {
+  position: static;
+  top: auto;
+  align-self: start;
+}
+
+.review-empty,
+.stage-placeholder,
+.compact-srt-entry,
+.segment-card,
+.recommendation-panel,
+.project-header,
+.project-banner,
+.workflow-section,
+.sidebar-footer {
+  overflow-wrap: anywhere;
+}
+
+.source-block {
+  border-left: 3px solid #94a3b8;
+}
+
+.recommend-block {
+  border-left: 3px solid #3182f6;
+}
+
+.hero-title-line {
+  display: block;
+}
+
+@media (max-width: 1280px) {
+  .project-workboard {
+    grid-template-columns: 1fr;
+  }
+
+  .review-column {
+    position: static;
+  }
+}
