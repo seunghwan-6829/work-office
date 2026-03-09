@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit --project tsconfig.check.json"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.99.0",
+    "@supabase/supabase-js": "^2.57.4",
     "next": "15.5.9",
     "react": "19.0.0",
     "react-dom": "19.0.0"
