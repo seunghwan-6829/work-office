@@ -1,3 +1,4 @@
+import { getMissingPublicEnvKeys, getSupabaseBrowserConfig, getSupabaseProjectRefFromUrl } from "../lib/env";
 import { mockApiKeyFields, mockRecommendations, mockSrtRows } from "../lib/mock-data";
 
 const statusSteps = [
@@ -8,6 +9,11 @@ const statusSteps = [
 ];
 
 export default function HomePage() {
+  const missingEnvKeys = getMissingPublicEnvKeys();
+  const supabaseConfig = getSupabaseBrowserConfig();
+  const projectRef = getSupabaseProjectRefFromUrl(supabaseConfig.url);
+  const supabaseReady = missingEnvKeys.length === 0;
+
   return (
     <main className="page-shell">
       <section className="hero">
@@ -92,6 +98,18 @@ export default function HomePage() {
           </div>
 
           <div className="settings-list">
+            <div className={supabaseReady ? "status-card status-card-ready" : "status-card status-card-warning"}>
+              <h3>Supabase 연결 상태</h3>
+              <p>
+                {supabaseReady
+                  ? `연결 준비 완료: ${projectRef}`
+                  : `누락된 환경변수: ${missingEnvKeys.join(", ")}`}
+              </p>
+              <small>
+                서버 작업까지 자동화하려면 나중에 `SUPABASE_SERVICE_ROLE_KEY`도 추가하면 됩니다.
+              </small>
+            </div>
+
             {mockApiKeyFields.map((field) => (
               <label className="settings-field" key={field.id}>
                 <span>{field.label}</span>

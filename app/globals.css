@@ -244,3 +244,25 @@ input {
     grid-template-columns: 1fr;
   }
 }
+
+.status-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(88, 59, 30, 0.08);
+  background: rgba(255, 250, 242, 0.92);
+}
+
+.status-card h3,
+.status-card p {
+  margin: 0;
+}
+
+.status-card-ready {
+  background: #e7f4ef;
+}
+
+.status-card-warning {
+  background: #fff1e5;
+}
