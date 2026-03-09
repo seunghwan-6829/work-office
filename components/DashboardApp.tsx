@@ -218,17 +218,49 @@ export default function DashboardApp() {
       setAuthMessage(`Supabase ${missingEnvKeys.join(", ")}`);
       return;
     }
-    if (!authEmail || !authPassword) {
+
+    const email = authEmail.trim();
+    const password = authPassword.trim();
+
+    if (!email || !password) {
       setAuthMessage("\uC774\uBA54\uC77C\uACFC \uBE44\uBC00\uBC88\uD638\uB97C \uBAA8\uB450 \uC785\uB825\uD574 \uC8FC\uC138\uC694.");
       return;
     }
+
     const action = authMode === "signin" ? signInWithEmail : signUpWithEmail;
-    const { error } = await action(authEmail, authPassword);
+    const { data, error } = await action(email, password);
+
     if (error) {
       setAuthMessage(error.message);
       return;
     }
-    setAuthMessage(authMode === "signup" ? "\uD68C\uC6D0\uAC00\uC785 \uC694\uCCAD\uC774 \uC644\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC774\uBA54\uC77C \uC778\uC99D\uC774 \uD544\uC694\uD558\uBA74 \uBA54\uC77C\uD568\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694." : "\uB85C\uADF8\uC778\uB418\uC5C8\uC2B5\uB2C8\uB2E4.");
+
+    if (authMode === "signin") {
+      setAuthMessage(
+        data.session
+          ? "\uB85C\uADF8\uC778\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+          : "\uB85C\uADF8\uC778\uC740 \uC694\uCCAD\uB418\uC5C8\uC9C0\uB9CC \uC138\uC158\uC744 \uBC1B\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uC774\uBA54\uC77C \uC778\uC99D \uC0C1\uD0DC\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694."
+      );
+      return;
+    }
+
+    const identities = data.user?.identities ?? [];
+
+    if (!data.user) {
+      setAuthMessage("\uD68C\uC6D0\uAC00\uC785 \uC751\uB2F5\uC744 \uBC1B\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. Supabase Auth \uC124\uC815\uC744 \uD55C \uBC88 \uB354 \uD655\uC778\uD574 \uC8FC\uC138\uC694.");
+      return;
+    }
+
+    if (identities.length === 0) {
+      setAuthMessage("\uC774\uBBF8 \uAC00\uC785\uB41C \uC774\uBA54\uC77C\uC774\uAC70\uB098, \uC774\uBA54\uC77C \uC778\uC99D \uB300\uAE30 \uC0C1\uD0DC\uC77C \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uBA54\uC77C\uD568\uC744 \uD655\uC778\uD558\uAC70\uB098 \uB85C\uADF8\uC778\uC744 \uC2DC\uB3C4\uD574 \uC8FC\uC138\uC694.");
+      return;
+    }
+
+    setAuthMessage(
+      data.session
+        ? "\uD68C\uC6D0\uAC00\uC785\uACFC \uB3D9\uC2DC\uC5D0 \uB85C\uADF8\uC778\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+        : "\uD68C\uC6D0\uAC00\uC785 \uC694\uCCAD\uC774 \uC644\uB8CC\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC774\uBA54\uC77C \uC778\uC99D\uC774 \uD544\uC694\uD558\uBA74 \uBA54\uC77C\uD568\uC744 \uD655\uC778\uD574 \uC8FC\uC138\uC694."
+    );
   }
 
   function handleCreateProject(withSample = false) {
@@ -350,7 +382,7 @@ export default function DashboardApp() {
       <main className="auth-page">
         <section className="auth-hero">
           <p className="auth-kicker">{T.appKicker}</p>
-          <h1>{T.authTitle}</h1>
+          <h1><span className="hero-title-line">\uD504\uB85C\uC81D\uD2B8 \uB2E8\uC704 \uD3B8\uC9D1 \uC790\uB3D9\uD654</span><span className="hero-title-line">\uC6CC\uD06C\uC2A4\uD398\uC774\uC2A4</span></h1>
           <p>{T.authCopy}</p>
         </section>
         <section className="auth-card panel-surface">
