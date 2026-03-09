@@ -1,32 +1,32 @@
 ﻿export const sampleSrt = `1
 00:00:02,000 --> 00:00:05,200
-\uC774 \uAE30\uB2A5\uC744 \uB123\uC73C\uBA74 \uD3B8\uC9D1 \uC2DC\uAC04\uC774 \uD06C\uAC8C \uC904\uC5B4\uB4ED\uB2C8\uB2E4.
+이 기능을 넣으면 편집 시간이 크게 줄어듭니다.
 
 2
 00:00:05,800 --> 00:00:09,000
-\uC608\uC2DC \uD654\uBA74\uC740 \uC77C\uB7EC\uC2A4\uD2B8 \uC2A4\uD0C0\uC77C\uB85C \uBCF4\uC5EC\uC8FC\uB294 \uAC8C \uC88B\uC2B5\uB2C8\uB2E4.
+예시 화면은 일러스트 스타일로 보여주는 게 좋습니다.
 
 3
 00:00:09,300 --> 00:00:13,000
-\uC2E4\uC81C \uACB0\uACFC\uB294 \uC9E7\uC740 \uBAA8\uC158 \uD074\uB9BD\uC73C\uB85C \uBCF4\uC5EC\uC8FC\uB294 \uAC8C \uB354 \uAC15\uD569\uB2C8\uB2E4.`;
+실제 결과는 짧은 모션 클립으로 보여주는 게 더 강합니다.`;
 
 export const mockApiKeyFields = [
   {
+    id: "anthropic",
+    label: "Claude API",
+    placeholder: "Anthropic API Key",
+    help: "1차 검수 추천과 프롬프트 생성을 Claude로 분석할 때 사용합니다."
+  },
+  {
     id: "google",
     label: "Google Vertex AI / Veo 3.1",
-    placeholder: "Vertex AI service account \uB610\uB294 API key",
-    help: "\uC601\uC0C1 \uC0DD\uC131 \uC791\uC5C5\uACFC \uC7A5\uAE30 \uC2E4\uD589 \uC0C1\uD0DC \uC870\uD68C\uC5D0 \uC0AC\uC6A9\uD569\uB2C8\uB2E4."
+    placeholder: "Vertex AI service account 또는 API key",
+    help: "영상 생성 작업과 장기 실행 상태 조회에 사용합니다."
   },
   {
     id: "nanobanana",
     label: "NanoBanana Pro",
     placeholder: "NanoBanana Pro API Key",
-    help: "\uC2E4\uC0AC\uD615\uACFC \uC77C\uB7EC\uC2A4\uD2B8 \uC774\uBBF8\uC9C0 \uC0DD\uC131\uC5D0 \uC0AC\uC6A9\uD569\uB2C8\uB2E4."
-  },
-  {
-    id: "openai",
-    label: "\uD14D\uC2A4\uD2B8 \uBD84\uC11D LLM",
-    placeholder: "\uC120\uD0DD \uC785\uB825",
-    help: "\uBB38\uC7A5 \uBD84\uB958\uC640 \uC2DC\uAC01 \uC124\uBA85 \uCD94\uCC9C\uC744 \uACE0\uB3C4\uD654\uD560 \uB54C \uC0AC\uC6A9\uD569\uB2C8\uB2E4."
+    help: "실사형과 일러스트 이미지 생성에 사용합니다."
   }
 ];

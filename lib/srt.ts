@@ -30,6 +30,7 @@ export interface ExportSettings {
   aspectRatio: string;
 }
 
+const FPS = 30;
 const timecodePattern = /^(\d{2}):(\d{2}):(\d{2})[,\.](\d{3})$/;
 
 function timecodeToMs(value: string) {
@@ -50,6 +51,10 @@ function msToTimecode(value: number) {
   const milliseconds = Math.floor(value % 1000).toString().padStart(3, "0");
 
   return `${hours}:${minutes}:${seconds},${milliseconds}`;
+}
+
+function msToFrames(value: number) {
+  return Math.max(0, Math.round((value / 1000) * FPS));
 }
 
 export function parseSrt(input: string) {
@@ -169,22 +174,31 @@ export function createXmlExport(
   settings: ExportSettings
 ) {
   const selectedMap = new Map(recommendations.filter((item) => selectedIds.includes(item.id)).map((item) => [item.segmentId, item]));
-  const variantCount = Math.max(1, settings.variantsPerSegment || 1);
-  const items = segments
+  const endFrame = msToFrames(segments[segments.length - 1]?.endMs ?? 1000);
+  const markers = segments
     .map((segment) => {
       const recommendation = selectedMap.get(segment.id);
-      const variants = recommendation
-        ? Array.from({ length: variantCount }, (_, index) => {
-            const variantIndex = index + 1;
-            return `\n    <asset kind="${recommendation.kind}" label="${recommendation.label}" variant="${variantIndex}" aspect_ratio="${escapeXml(settings.aspectRatio)}">${escapeXml(recommendation.prompt)}</asset>`;
-          }).join("")
-        : "";
+      if (!recommendation) {
+        return "";
+      }
 
-      return `  <segment id="${segment.id}" start="${segment.startTimecode}" end="${segment.endTimecode}">\n    <caption>${escapeXml(segment.text)}</caption>${variants}\n  </segment>`;
+      const inFrame = msToFrames(segment.startMs);
+      const outFrame = Math.max(inFrame + 1, msToFrames(segment.endMs));
+      const commentLines = [
+        `kind=${recommendation.kind}`,
+        `label=${recommendation.label}`,
+        `variants=${Math.max(1, settings.variantsPerSegment || 1)}`,
+        `aspectRatio=${settings.aspectRatio}`,
+        `visualCue=${recommendation.visualCue}`,
+        `prompt=${recommendation.prompt}`
+      ].join(" | ");
+
+      return `      <marker>\n        <name>${escapeXml(recommendation.title)}</name>\n        <comment>${escapeXml(commentLines)}</comment>\n        <in>${inFrame}</in>\n        <out>${outFrame}</out>\n      </marker>`;
     })
+    .filter(Boolean)
     .join("\n");
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<premiereAutomationExport variants_per_segment="${variantCount}" aspect_ratio="${escapeXml(settings.aspectRatio)}">\n${items}\n</premiereAutomationExport>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<xmeml version="5">\n  <sequence id="sequence-1">\n    <name>Premiere Automation Export</name>\n    <duration>${Math.max(1, endFrame)}</duration>\n    <rate>\n      <timebase>${FPS}</timebase>\n      <ntsc>FALSE</ntsc>\n    </rate>\n    <timecode>\n      <rate>\n        <timebase>${FPS}</timebase>\n        <ntsc>FALSE</ntsc>\n      </rate>\n      <string>00:00:00:00</string>\n      <frame>0</frame>\n      <displayformat>NDF</displayformat>\n    </timecode>\n    <media>\n      <video>\n        <format>\n          <samplecharacteristics>\n            <width>1920</width>\n            <height>1080</height>\n            <anamorphic>FALSE</anamorphic>\n            <pixelaspectratio>square</pixelaspectratio>\n            <rate>\n              <timebase>${FPS}</timebase>\n              <ntsc>FALSE</ntsc>\n            </rate>\n          </samplecharacteristics>\n        </format>\n        <track />\n      </video>\n      <audio>\n        <track />\n      </audio>\n    </media>\n${markers ? `    <markers>\n${markers}\n    </markers>\n` : ""}  </sequence>\n</xmeml>`;
 }
 
 function escapeXml(value: string) {

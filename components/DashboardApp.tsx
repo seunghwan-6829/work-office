@@ -34,6 +34,17 @@ type RecommendationState = RecommendationDraft & {
 };
 
 type AuthMode = "signin" | "signup";
+type ReviewStep = 2 | 3 | 4 | 5;
+
+type ClaudeRecommendationPayload = {
+  segmentId: string;
+  kind: RecommendationKind;
+  title: string;
+  visualCue: string;
+  prompt: string;
+  reason: string;
+  timecode: string;
+};
 
 const T = {
   loading: "작업 공간을 준비하고 있습니다...",
@@ -91,6 +102,10 @@ const T = {
   finalPrep: "최종 검수 준비",
   finalReviewStep: "5단계",
   finalReview: "최종 검수",
+  openSecondReview: "2차 검수 열기",
+  openFinalPrep: "최종 검수 준비",
+  openFinalReview: "최종 검수 열기",
+  selectAll: "전체 선택",
   generateAll: "전체 항목 생성",
   generating: "생성 준비 중...",
   downloadXml: "XML 다운로드",
@@ -112,7 +127,8 @@ const T = {
   providerKeys: "프로바이더 키",
   close: "닫기",
   save: "저장",
-  upload: "업로드"
+  upload: "업로드",
+  aiSetupRequired: "Claude API 키를 연결해야 AI 자동 분류를 진행할 수 있습니다."
 } as const;
 
 const kindClassMap: Record<RecommendationKind, string> = {
@@ -126,14 +142,6 @@ const kindLabelMap: Record<RecommendationKind, string> = {
   image_illustration: T.illustration,
   video: T.video
 };
-
-function toRecommendationState(segments: SubtitleSegment[], settings: RecommendationSettings): RecommendationState[] {
-  return buildRecommendations(segments, settings).map((item) => ({
-    ...item,
-    decision: "pending",
-    generated: false
-  }));
-}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -166,6 +174,22 @@ function mapAuthError(message: string) {
   return message;
 }
 
+function hydrateRecommendations(items: ClaudeRecommendationPayload[]): RecommendationState[] {
+  return items.map((item) => ({
+    id: `rec-${item.segmentId}`,
+    segmentId: item.segmentId,
+    kind: item.kind,
+    label: kindLabelMap[item.kind],
+    title: item.title,
+    prompt: item.prompt,
+    visualCue: item.visualCue,
+    reason: item.reason,
+    timecode: item.timecode,
+    decision: "pending",
+    generated: false
+  }));
+}
+
 export default function DashboardApp() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const missingEnvKeys = getMissingPublicEnvKeys();
@@ -185,12 +209,15 @@ export default function DashboardApp() {
   const [recommendations, setRecommendations] = useState<RecommendationState[]>([]);
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [bannerMessage, setBannerMessage] = useState("프로젝트를 선택하면 SRT부터 단계별로 작업할 수 있습니다.");
+  const [floatingNotice, setFloatingNotice] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isClassifying, setIsClassifying] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSrtModalOpen, setIsSrtModalOpen] = useState(false);
   const [variantsPerSegment, setVariantsPerSegment] = useState("3");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [frequencySeconds, setFrequencySeconds] = useState("5");
+  const [reviewStep, setReviewStep] = useState<ReviewStep>(2);
 
   const recommendationSettings = useMemo<RecommendationSettings>(
     () => ({ frequencySeconds: Math.max(1, Number(frequencySeconds) || 5) }),
@@ -214,6 +241,8 @@ export default function DashboardApp() {
     [recommendations]
   );
   const isAdmin = isAdminEmail(session?.user.email);
+  const providerStorageKey = session?.user.email ? `provider-keys:${session.user.email.toLowerCase()}` : null;
+  const projectStatusLabel = supabaseReady ? `${(projectRef || "Supabase").slice(0, 8)}... ${T.ready}` : `Supabase ${T.checkNeeded}`;
 
   useEffect(() => {
     let mounted = true;
@@ -254,14 +283,43 @@ export default function DashboardApp() {
   }, [session?.user.email]);
 
   useEffect(() => {
+    if (!providerStorageKey || typeof window === "undefined") {
+      setApiKeys({});
+      return;
+    }
+
+    const raw = window.localStorage.getItem(providerStorageKey);
+    if (!raw) {
+      setApiKeys({});
+      return;
+    }
+
+    try {
+      setApiKeys(JSON.parse(raw) as Record<string, string>);
+    } catch {
+      setApiKeys({});
+    }
+  }, [providerStorageKey]);
+
+  useEffect(() => {
+    if (!providerStorageKey || typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(providerStorageKey, JSON.stringify(apiKeys));
+  }, [apiKeys, providerStorageKey]);
+
+  useEffect(() => {
     if (!selectedProject) {
       setSegments([]);
       setRecommendations([]);
+      setReviewStep(2);
       return;
     }
 
     const parsedSegments = selectedProject.srtText ? parseSrt(selectedProject.srtText) : [];
     setSegments(parsedSegments);
+    setReviewStep(parsedSegments.length > 0 ? 2 : 2);
   }, [selectedProject]);
 
   function persistProjects(nextProjects: ProjectRecord[]) {
@@ -328,6 +386,7 @@ export default function DashboardApp() {
     persistProjects(nextProjects);
     setSelectedProjectId(project.id);
     setRecommendations([]);
+    setReviewStep(2);
     setBannerMessage(`${project.name}를 만들었습니다.`);
   }
 
@@ -365,6 +424,7 @@ export default function DashboardApp() {
       const parsed = parseSrt(selectedProject.srtText);
       setSegments(parsed);
       setRecommendations([]);
+      setReviewStep(2);
       updateProject({ srtText: selectedProject.srtText });
       setBannerMessage(`SRT를 반영했고 ${parsed.length}개 구간을 확인했습니다.`);
       setIsSrtModalOpen(false);
@@ -373,20 +433,49 @@ export default function DashboardApp() {
     }
   }
 
-  function handleGenerateRecommendations() {
+  async function handleGenerateRecommendations() {
     if (!selectedProject?.srtText) {
       setBannerMessage("먼저 SRT를 입력해 주세요.");
       return;
     }
 
+    if (!apiKeys.anthropic?.trim()) {
+      setFloatingNotice(T.aiSetupRequired);
+      setIsSettingsOpen(true);
+      return;
+    }
+
     try {
       const parsed = parseSrt(selectedProject.srtText);
-      const nextRecommendations = toRecommendationState(parsed, recommendationSettings);
       setSegments(parsed);
+      setIsClassifying(true);
+
+      const response = await fetch("/api/recommendations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          apiKey: apiKeys.anthropic,
+          segments: parsed,
+          frequencySeconds: recommendationSettings.frequencySeconds
+        })
+      });
+
+      const payload = (await response.json()) as { error?: string; items?: ClaudeRecommendationPayload[] };
+
+      if (!response.ok || !payload.items) {
+        throw new Error(payload.error || "Claude 분류에 실패했습니다.");
+      }
+
+      const nextRecommendations = hydrateRecommendations(payload.items);
       setRecommendations(nextRecommendations);
-      setBannerMessage(`1차 검수용 추천 항목 ${nextRecommendations.length}개를 만들었습니다.`);
+      setReviewStep(2);
+      setBannerMessage(`Claude가 1차 검수용 추천 항목 ${nextRecommendations.length}개를 만들었습니다.`);
     } catch (error) {
-      setBannerMessage(error instanceof Error ? error.message : "AI 자동 분류에 실패했습니다.");
+      const message = error instanceof Error ? error.message : "AI 자동 분류에 실패했습니다.";
+      setBannerMessage(message);
+      setFloatingNotice(message);
+    } finally {
+      setIsClassifying(false);
     }
   }
 
@@ -405,6 +494,12 @@ export default function DashboardApp() {
         const nextKind = patch.kind ?? item.kind;
         return { ...item, ...patch, kind: nextKind, label: kindLabelMap[nextKind] };
       })
+    );
+  }
+
+  function selectAllReviewItems() {
+    setRecommendations((current) =>
+      current.map((item) => (item.decision === "excluded" ? item : { ...item, decision: "selected" }))
     );
   }
 
@@ -445,7 +540,7 @@ export default function DashboardApp() {
     link.download = `${selectedProject.name || "premiere-project"}.xml`;
     link.click();
     URL.revokeObjectURL(url);
-    setBannerMessage("Premiere XML을 다운로드했습니다.");
+    setBannerMessage("Premiere용 XML을 다운로드했습니다. 현재 파일은 마커 기반 시퀀스로 가져오게 됩니다.");
   }
 
   async function handleSignOut() {
@@ -504,6 +599,10 @@ export default function DashboardApp() {
     <main className="workspace-shell">
       <input ref={fileInputRef} accept=".srt" className="hidden-input" onChange={handleFileChange} type="file" />
 
+      {floatingNotice ? (
+        <div className="floating-notice" onClick={() => setFloatingNotice("")}>{floatingNotice}</div>
+      ) : null}
+
       <aside className="workspace-sidebar panel-surface">
         <div className="sidebar-top">
           <div>
@@ -550,7 +649,7 @@ export default function DashboardApp() {
 
         <div className="sidebar-footer panel-surface">
           <strong>{session.user.email}</strong>
-          <span>{supabaseReady ? `${projectRef || "Supabase"} ${T.ready}` : `Supabase ${T.checkNeeded}`}</span>
+          <span>{projectStatusLabel}</span>
           <button className="button button-secondary button-block" onClick={handleSignOut}>
             {T.logout}
           </button>
@@ -617,7 +716,7 @@ export default function DashboardApp() {
                     {T.recentUpdate} {formatDate(selectedProject.updatedAt)}
                   </p>
                 </div>
-                <div className="project-header-stats compact-stats">
+                <div className="project-header-stats compact-stats minimal-stats">
                   <div>
                     <span>{T.segmentCount}</span>
                     <strong>{segments.length}</strong>
@@ -669,9 +768,16 @@ export default function DashboardApp() {
                     <p className="section-kicker">{T.firstReviewStep}</p>
                     <h2>{T.firstReview}</h2>
                   </div>
-                  <button className="button button-primary" onClick={handleGenerateRecommendations}>
-                    {T.autoClassify}
-                  </button>
+                  <div className="inline-actions">
+                    <button className="button button-primary" onClick={handleGenerateRecommendations}>
+                      {isClassifying ? "AI 분석 중..." : T.autoClassify}
+                    </button>
+                    {recommendations.length > 0 ? (
+                      <button className="button button-secondary" onClick={() => setReviewStep(3)}>
+                        {T.openSecondReview}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="segment-list">
                   {segments.length > 0 ? (
@@ -718,31 +824,41 @@ export default function DashboardApp() {
                 </div>
               </section>
 
-              <section className="workflow-section panel-surface">
-                <div className="section-header">
-                  <div>
-                    <p className="section-kicker">{T.secondReviewStep}</p>
-                    <h2>{T.secondReview}</h2>
+              {reviewStep >= 3 ? (
+                <section className="workflow-section panel-surface">
+                  <div className="section-header">
+                    <div>
+                      <p className="section-kicker">{T.secondReviewStep}</p>
+                      <h2>{T.secondReview}</h2>
+                    </div>
+                    <button className="button button-secondary" onClick={() => setReviewStep(4)}>
+                      {T.openFinalPrep}
+                    </button>
                   </div>
-                </div>
-                <div className="stage-placeholder">
-                  <strong>MOGRT 자막 투입 구간 추천 단계</strong>
-                  <p>현재는 이미지와 영상 후보를 먼저 정리하는 단계입니다.</p>
-                </div>
-              </section>
+                  <div className="stage-placeholder">
+                    <strong>MOGRT 자막 투입 구간 추천 단계</strong>
+                    <p>현재는 이미지와 영상 후보를 먼저 정리하고, 이후 단계에서 MOGRT 자막 투입 구간을 검수합니다.</p>
+                  </div>
+                </section>
+              ) : null}
 
-              <section className="workflow-section panel-surface">
-                <div className="section-header">
-                  <div>
-                    <p className="section-kicker">{T.finalPrepStep}</p>
-                    <h2>{T.finalPrep}</h2>
+              {reviewStep >= 4 ? (
+                <section className="workflow-section panel-surface">
+                  <div className="section-header">
+                    <div>
+                      <p className="section-kicker">{T.finalPrepStep}</p>
+                      <h2>{T.finalPrep}</h2>
+                    </div>
+                    <button className="button button-secondary" onClick={() => setReviewStep(5)}>
+                      {T.openFinalReview}
+                    </button>
                   </div>
-                </div>
-                <div className="stage-placeholder">
-                  <strong>오른쪽 검수판에서 항목별 형식과 설명을 개별 수정할 수 있습니다.</strong>
-                  <p>대본 문장과 추천 설명의 배경을 분리해서 더 헷갈리지 않도록 정리했습니다.</p>
-                </div>
-              </section>
+                  <div className="stage-placeholder">
+                    <strong>오른쪽 검수판에서 항목별 형식과 설명을 개별 수정할 수 있습니다.</strong>
+                    <p>대본 문장과 추천 설명의 배경을 분리해서 더 헷갈리지 않도록 정리했습니다.</p>
+                  </div>
+                </section>
+              ) : null}
             </div>
 
             <aside className="review-column panel-surface">
@@ -751,17 +867,25 @@ export default function DashboardApp() {
                   <p className="section-kicker">{T.finalReviewStep}</p>
                   <h2>{T.finalReview}</h2>
                 </div>
-                <div className="inline-actions">
-                  <button className="button button-secondary" disabled={isGenerating} onClick={handleGenerateAssets}>
+                <div className="inline-actions review-header-actions">
+                  <button className="button" onClick={selectAllReviewItems} disabled={reviewStep < 5 || reviewItems.length === 0}>
+                    {T.selectAll}
+                  </button>
+                  <button className="button button-secondary" disabled={isGenerating || reviewStep < 5} onClick={handleGenerateAssets}>
                     {isGenerating ? T.generating : T.generateAll}
                   </button>
-                  <button className="button button-primary" onClick={handleExportXml}>
+                  <button className="button button-primary" disabled={reviewStep < 5} onClick={handleExportXml}>
                     {T.downloadXml}
                   </button>
                 </div>
               </div>
 
-              {reviewItems.length > 0 ? (
+              {reviewStep < 5 ? (
+                <div className="review-empty">
+                  <strong>최종 검수 단계가 아직 열리지 않았습니다.</strong>
+                  <p>왼쪽에서 2차 검수와 최종 검수 준비 단계를 차례대로 열어 주세요.</p>
+                </div>
+              ) : reviewItems.length > 0 ? (
                 <div className="review-list">
                   {reviewItems.map((item) => (
                     <article className="recommendation-panel recommendation-panel-strong" key={item.id}>
@@ -829,8 +953,7 @@ export default function DashboardApp() {
               ) : (
                 <div className="review-empty">
                   <strong>{T.recommendationEmpty}</strong>
-                  <p>`{T.autoClassify}` 버튼을 누르면 이 영역에 결과가 채워집니다.</p>
-                  <p>현재 단계에서는 이미지와 영상 형식만 다루고, MOGRT 추천은 다음 검수 단계로 분리됩니다.</p>
+                  <p>Claude API 키를 연결한 뒤 `{T.autoClassify}`를 누르면 이 영역에 결과가 채워집니다.</p>
                 </div>
               )}
             </aside>
@@ -865,7 +988,7 @@ export default function DashboardApp() {
               ))}
             </div>
             <div className="modal-footer">
-              <span>{supabaseReady ? `${projectRef || "Supabase"} ${T.ready}` : `Supabase ${T.checkNeeded}`}</span>
+              <span>{projectStatusLabel}</span>
               <button className="button button-primary" onClick={() => setIsSettingsOpen(false)}>
                 {T.save}
               </button>
