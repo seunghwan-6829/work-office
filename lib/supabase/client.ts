@@ -23,3 +23,11 @@ export function createSupabaseBrowserClient() {
 
   return browserClient;
 }
+
+export function tryCreateSupabaseBrowserClient() {
+  try {
+    return createSupabaseBrowserClient();
+  } catch {
+    return null;
+  }
+}
