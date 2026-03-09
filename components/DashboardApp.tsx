@@ -40,6 +40,8 @@ const T = {
   authTitle: "\uD504\uB85C\uC81D\uD2B8 \uB2E8\uC704 \uD3B8\uC9D1 \uC790\uB3D9\uD654 \uC6CC\uD06C\uC2A4\uD398\uC774\uC2A4",
   authCopy: "SRT\uB97C \uB123\uACE0, \uAD6C\uAC04\uC744 \uAC80\uC218\uD558\uACE0, \uCD94\uCC9C\uC744 \uB2E4\uB4EC\uC740 \uB4A4 XML\uAE4C\uC9C0 \uC774\uC5B4\uC9C0\uB294 \uC791\uC5C5 \uD750\uB984\uC744 \uD55C\uACF3\uC5D0\uC11C \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
   signin: "\uB85C\uADF8\uC778",
+  heroLine1: "\uD504\uB85C\uC81D\uD2B8 \uB2E8\uC704 \uD3B8\uC9D1 \uC790\uB3D9\uD654",
+  heroLine2: "\uC6CC\uD06C\uC2A4\uD398\uC774\uC2A4",
   signup: "\uD68C\uC6D0\uAC00\uC785",
   email: "\uC774\uBA54\uC77C",
   password: "\uBE44\uBC00\uBC88\uD638",
@@ -382,7 +384,7 @@ export default function DashboardApp() {
       <main className="auth-page">
         <section className="auth-hero">
           <p className="auth-kicker">{T.appKicker}</p>
-          <h1><span className="hero-title-line">\uD504\uB85C\uC81D\uD2B8 \uB2E8\uC704 \uD3B8\uC9D1 \uC790\uB3D9\uD654</span><span className="hero-title-line">\uC6CC\uD06C\uC2A4\uD398\uC774\uC2A4</span></h1>
+          <h1><span className="hero-title-line">{T.heroLine1}</span><span className="hero-title-line">{T.heroLine2}</span></h1>
           <p>{T.authCopy}</p>
         </section>
         <section className="auth-card panel-surface">
