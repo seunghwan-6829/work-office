@@ -695,3 +695,69 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
 .icon-button small {
   font-size: 0.82rem;
 }
+
+:root {
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+}
+
+.workspace-shell,
+.workspace-sidebar,
+.sidebar-top,
+.sidebar-nav,
+.project-list,
+.dashboard-stack,
+.workspace-main,
+.project-main-column,
+.project-workboard,
+.segment-list,
+.settings-grid,
+.recommendation-grid {
+  gap: var(--space-3);
+}
+
+.button-danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.project-manage-actions {
+  margin-top: var(--space-3);
+}
+
+.sidebar-footer {
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+}
+
+.sidebar-footer strong {
+  margin: 0;
+}
+
+.sidebar-footer .button {
+  margin-top: var(--space-2);
+}
+
+.modal-panel-wide {
+  width: min(1100px, 100%);
+}
+
+.modal-panel-wide .modal-header,
+.modal-panel-wide .modal-footer,
+.modal-panel-wide .inline-actions {
+  gap: var(--space-2);
+}
+
+.workflow-section,
+.project-banner,
+.project-header,
+.review-column,
+.sidebar-footer,
+.home-hero,
+.dashboard-card,
+.modal-panel {
+  padding: var(--space-5);
+}

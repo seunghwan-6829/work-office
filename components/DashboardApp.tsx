@@ -128,6 +128,9 @@ const T = {
   close: "닫기",
   save: "저장",
   upload: "업로드",
+  clearSrt: "SRT 삭제",
+  renameProject: "프로젝트 저장",
+  deleteProject: "프로젝트 삭제",
   aiSetupRequired: "Claude API 키를 연결해야 AI 자동 분류를 진행할 수 있습니다."
 } as const;
 
@@ -389,6 +392,36 @@ export default function DashboardApp() {
     setBannerMessage(`${project.name}를 만들었습니다.`);
   }
 
+
+  function handleProjectRename() {
+    if (!selectedProject) return;
+    const currentIndex = projects.findIndex((project) => project.id === selectedProject.id);
+    const nextName = selectedProject.name.trim() || `프로젝트 ${currentIndex + 1}`;
+    updateProject({ name: nextName });
+    setBannerMessage(`프로젝트 이름을 '${nextName}'로 저장했습니다.`);
+  }
+
+  function handleDeleteProject() {
+    if (!selectedProject) return;
+    const deletedName = selectedProject.name;
+    const nextProjects = projects.filter((project) => project.id !== selectedProject.id);
+    persistProjects(nextProjects);
+    setSelectedProjectId(nextProjects[0]?.id ?? null);
+    setSegments([]);
+    setRecommendations([]);
+    setReviewStep(2);
+    setBannerMessage(`${deletedName}를 삭제했습니다.`);
+  }
+
+  function handleClearSrt() {
+    if (!selectedProject) return;
+    updateProject({ srtText: "" });
+    setSegments([]);
+    setRecommendations([]);
+    setReviewStep(2);
+    setIsSrtModalOpen(false);
+    setBannerMessage("연결된 SRT를 삭제했습니다.");
+  }
   function updateProject(patch: Partial<ProjectRecord>) {
     if (!selectedProject) return;
 
@@ -715,6 +748,14 @@ export default function DashboardApp() {
                   <p className="project-subcopy">
                     {T.recentUpdate} {formatDate(selectedProject.updatedAt)}
                   </p>
+                  <div className="inline-actions project-manage-actions">
+                    <button className="button button-secondary" onClick={handleProjectRename}>
+                      {T.renameProject}
+                    </button>
+                    <button className="button button-danger" onClick={handleDeleteProject}>
+                      {T.deleteProject}
+                    </button>
+                  </div>
                 </div>
                 <div className="project-header-stats compact-stats minimal-stats">
                   <div>
@@ -746,6 +787,9 @@ export default function DashboardApp() {
                   <div className="inline-actions">
                     <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>
                       {T.fileUpload}
+                    </button>
+                    <button className="button button-secondary" onClick={handleClearSrt}>
+                      {T.clearSrt}
                     </button>
                     <button className="button button-primary" onClick={() => setIsSrtModalOpen(true)}>
                       {T.openSrt}
@@ -1008,6 +1052,9 @@ export default function DashboardApp() {
                 <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>
                   {T.upload}
                 </button>
+                <button className="button button-secondary" onClick={handleClearSrt}>
+                  {T.clearSrt}
+                </button>
                 <button className="button button-primary" onClick={applySrtText}>
                   {T.save}
                 </button>
@@ -1025,6 +1072,8 @@ export default function DashboardApp() {
     </main>
   );
 }
+
+
 
 
 

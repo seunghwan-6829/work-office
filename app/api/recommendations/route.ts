@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       "anthropic-version": "2023-06-01"
     },
     body: JSON.stringify({
-      model: "claude-3-5-haiku-latest",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 2400,
       temperature: 0.4,
       messages: [{ role: "user", content: prompt }]
@@ -114,3 +114,5 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ items });
 }
+
+
