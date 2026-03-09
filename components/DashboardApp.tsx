@@ -297,15 +297,12 @@ export default function DashboardApp() {
       <main className="auth-page">
         <section className="auth-hero">
           <p className="auth-kicker">Premiere Automation</p>
-          <h1>Project-based editing automation workspace</h1>
-          <p>
-            A cleaner information flow: sign in, create a project, attach SRT, then unlock recommendations,
-            generation, and XML export only when each step is ready.
-          </p>
+          <h1>Editing automation, organized by project.</h1>
+          <p>Sign in, open a project, attach SRT, and work step by step.</p>
           <div className="auth-feature-list">
-            <span>Project Home</span>
-            <span>Notion-style Sidebar</span>
-            <span>Admin Page</span>
+            <span>Projects</span>
+            <span>Sidebar</span>
+            <span>Admin</span>
           </div>
         </section>
 
@@ -327,10 +324,11 @@ export default function DashboardApp() {
             <button className="button button-primary button-block" onClick={handleAuthSubmit}>
               {authMode === "signin" ? "Sign in" : "Create account"}
             </button>
-            <p className="auth-message">{authMessage || "Supabase Auth email/password flow is enabled here."}</p>
-            <p className="auth-helper">
-              Admin access opens automatically for <strong>motiol_6829@naver.com</strong>.
-            </p>
+            <p className="auth-message">{authMessage || "Use email + password to continue."}</p>
+            <div className="auth-meta">
+              <span>Admin: motiol_6829@naver.com</span>
+              {!supabaseReady ? <span>Env missing: {missingEnvKeys.join(", ")}</span> : <span>{projectRef || "Supabase"} ready</span>}
+            </div>
           </div>
         </section>
       </main>

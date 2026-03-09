@@ -8,13 +8,13 @@ export function createSupabaseBrowserClient() {
     return browserClient;
   }
 
-  const { url, anonKey } = getSupabaseBrowserConfig();
+  const { url, publicKey } = getSupabaseBrowserConfig();
 
-  if (!url || !anonKey) {
+  if (!url || !publicKey) {
     throw new Error("Supabase public environment variables are missing.");
   }
 
-  browserClient = createClient(url, anonKey, {
+  browserClient = createClient(url, publicKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true

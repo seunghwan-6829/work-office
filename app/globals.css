@@ -125,9 +125,10 @@ button:disabled {
 .auth-page {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) 460px;
+  grid-template-columns: minmax(0, 0.95fr) 440px;
   gap: 24px;
   padding: 32px;
+  align-items: center;
 }
 
 .auth-hero,
@@ -152,16 +153,17 @@ button:disabled {
 
 .auth-hero h1 {
   margin: 0;
-  font-size: clamp(3rem, 5vw, 5rem);
+  max-width: 720px;
+  font-size: clamp(2.4rem, 4.4vw, 4rem);
   line-height: 1.02;
   letter-spacing: -0.05em;
 }
 
 .auth-hero p {
-  max-width: 700px;
+  max-width: 560px;
   color: var(--muted);
-  font-size: 1.08rem;
-  line-height: 1.75;
+  font-size: 1rem;
+  line-height: 1.65;
 }
 
 .auth-feature-list {
@@ -182,6 +184,7 @@ button:disabled {
 .auth-card {
   padding: 28px;
   align-self: center;
+  max-width: 440px;
 }
 
 .auth-tabs {
@@ -612,4 +615,18 @@ button:disabled {
     width: 100%;
     grid-template-columns: repeat(3, 1fr);
   }
+}
+.auth-meta {
+  display: grid;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 0.94rem;
+  color: var(--muted);
+}
+
+.auth-meta span {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.72);
+  border: 1px solid var(--stroke);
 }
