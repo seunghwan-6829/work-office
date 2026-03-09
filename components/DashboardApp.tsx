@@ -242,7 +242,6 @@ export default function DashboardApp() {
   );
   const isAdmin = isAdminEmail(session?.user.email);
   const providerStorageKey = session?.user.email ? `provider-keys:${session.user.email.toLowerCase()}` : null;
-  const projectStatusLabel = supabaseReady ? `${(projectRef || "Supabase").slice(0, 8)}... ${T.ready}` : `Supabase ${T.checkNeeded}`;
 
   useEffect(() => {
     let mounted = true;
@@ -614,13 +613,15 @@ export default function DashboardApp() {
           </button>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav panel-nav">
           <button className={!selectedProjectId ? "sidebar-link active" : "sidebar-link"} onClick={() => setSelectedProjectId(null)}>
-            {T.home}
+            <span className="sidebar-link-icon">⌂</span>
+            <span>{T.home}</span>
           </button>
           {isAdmin ? (
             <Link className="sidebar-link" href="/admin">
-              {T.adminPage}
+              <span className="sidebar-link-icon">⚙</span>
+              <span>{T.adminPage}</span>
             </Link>
           ) : null}
         </nav>
@@ -649,7 +650,6 @@ export default function DashboardApp() {
 
         <div className="sidebar-footer panel-surface">
           <strong>{session.user.email}</strong>
-          <span>{projectStatusLabel}</span>
           <button className="button button-secondary button-block" onClick={handleSignOut}>
             {T.logout}
           </button>
@@ -987,8 +987,7 @@ export default function DashboardApp() {
                 </label>
               ))}
             </div>
-            <div className="modal-footer">
-              <span>{projectStatusLabel}</span>
+            <div className="modal-footer settings-modal-footer">
               <button className="button button-primary" onClick={() => setIsSettingsOpen(false)}>
                 {T.save}
               </button>
@@ -1026,3 +1025,6 @@ export default function DashboardApp() {
     </main>
   );
 }
+
+
+
