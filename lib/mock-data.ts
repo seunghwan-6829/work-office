@@ -27,6 +27,6 @@ export const mockApiKeyFields = [
     id: "openai",
     label: "텍스트 분석용 LLM",
     placeholder: "선택 입력",
-    help: "추천 구간 추출과 포인트 자막 분류 고도화에 사용할 수 있습니다."
+    help: "문장 분류와 시각 설명 추천을 고도화할 때 사용합니다."
   }
 ];

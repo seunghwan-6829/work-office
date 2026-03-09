@@ -332,3 +332,75 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
   .topbar, .project-header, .section-header, .modal-header, .modal-footer { flex-direction: column; }
   .project-header-stats { width: 100%; grid-template-columns: repeat(3, 1fr); }
 }
+.project-workboard {
+  align-items: start;
+}
+
+.project-main-column {
+  min-width: 0;
+}
+
+.review-column {
+  min-width: 0;
+}
+
+.review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.recommendation-panel-strong {
+  background: #ffffff;
+}
+
+.recommendation-body-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.source-block,
+.recommend-block {
+  padding: 12px;
+  border: 1px solid var(--stroke);
+}
+
+.source-block {
+  background: #fbfcfe;
+}
+
+.recommend-block {
+  background: #f4f8ff;
+}
+
+.meta-label {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.compact-field {
+  margin-top: 8px;
+}
+
+.compact-field select,
+.inline-textarea {
+  width: 100%;
+  border: 1px solid var(--stroke-strong);
+  background: #ffffff;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.inline-textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}

@@ -7,7 +7,7 @@ export interface SubtitleSegment {
   text: string;
 }
 
-export type RecommendationKind = "image_real" | "image_illustration" | "video" | "point_caption";
+export type RecommendationKind = "image_real" | "image_illustration" | "video";
 
 export interface RecommendationDraft {
   id: string;
@@ -16,8 +16,14 @@ export interface RecommendationDraft {
   label: string;
   title: string;
   prompt: string;
+  visualCue: string;
   reason: string;
   timecode: string;
+}
+
+export interface ExportSettings {
+  variantsPerSegment: number;
+  aspectRatio: string;
 }
 
 const timecodePattern = /^(\d{2}):(\d{2}):(\d{2})[,\.](\d{3})$/;
@@ -26,7 +32,7 @@ function timecodeToMs(value: string) {
   const match = value.trim().match(timecodePattern);
 
   if (!match) {
-    throw new Error(`Invalid SRT timecode: ${value}`);
+    throw new Error(`잘못된 SRT 타임코드입니다: ${value}`);
   }
 
   const [, hh, mm, ss, ms] = match;
@@ -34,18 +40,10 @@ function timecodeToMs(value: string) {
 }
 
 function msToTimecode(value: number) {
-  const hours = Math.floor(value / 3600000)
-    .toString()
-    .padStart(2, "0");
-  const minutes = Math.floor((value % 3600000) / 60000)
-    .toString()
-    .padStart(2, "0");
-  const seconds = Math.floor((value % 60000) / 1000)
-    .toString()
-    .padStart(2, "0");
-  const milliseconds = Math.floor(value % 1000)
-    .toString()
-    .padStart(3, "0");
+  const hours = Math.floor(value / 3600000).toString().padStart(2, "0");
+  const minutes = Math.floor((value % 3600000) / 60000).toString().padStart(2, "0");
+  const seconds = Math.floor((value % 60000) / 1000).toString().padStart(2, "0");
+  const milliseconds = Math.floor(value % 1000).toString().padStart(3, "0");
 
   return `${hours}:${minutes}:${seconds},${milliseconds}`;
 }
@@ -78,55 +76,55 @@ export function parseSrt(input: string) {
 }
 
 function pickRecommendationKind(text: string, index: number): RecommendationKind {
-  const lower = text.toLowerCase();
-
-  if (/(그래프|비교|구조|정리|일러스트|도식)/.test(text)) {
+  if (/(비교|구조|정리|일러스트|도식|설명도)/.test(text)) {
     return "image_illustration";
   }
 
-  if (/(장면|움직|실제|시연|결과|영상|모션)/.test(text)) {
+  if (/(장면|실제|시연|결과|움직임|모션|변화|보여)/.test(text)) {
     return "video";
   }
 
-  if (/(강조|핵심|포인트|중요|숫자|효율|시간)/.test(text) || index % 3 === 0) {
-    return "point_caption";
-  }
-
-  if (/(사람|현실|촬영|오피스|스튜디오|실사)/.test(text) || index % 2 === 0) {
+  if (/(사람|오피스|현실|촬영|손|표정|환경)/.test(text) || index % 2 === 0) {
     return "image_real";
   }
 
   return "video";
 }
 
-function buildPrompt(text: string, kind: RecommendationKind) {
+function buildVisualCue(text: string, kind: RecommendationKind) {
   if (kind === "image_illustration") {
-    return `깔끔한 인포그래픽 일러스트, 토스 스타일의 명료한 카드형 레이아웃, 핵심 문장: ${text}`;
+    return `핵심 개념 '${text}'를 한 장의 구조도나 카드형 인포그래픽으로 보여주는 장면`;
   }
 
   if (kind === "video") {
-    return `짧은 시네마틱 모션 클립, 4초, 핵심 장면은 '${text}'를 직관적으로 보여주기, 프레임 안정성 우선`;
+    return `문장 '${text}'를 직관적으로 이해할 수 있는 움직임 있는 짧은 장면`;
   }
 
-  if (kind === "point_caption") {
-    return `핵심 키워드 강조형 포인트 자막, 1개의 강한 메시지, 큰 숫자나 키워드 중심, 원문: ${text}`;
+  return `문장 '${text}'를 현실적인 인물, 공간, 손동작, 표정으로 전달하는 실사 장면`;
+}
+
+function buildPrompt(text: string, kind: RecommendationKind, visualCue: string) {
+  if (kind === "image_illustration") {
+    return `설명형 일러스트 장면. ${visualCue}. 군더더기 없는 구성, 정보 전달 우선, 텍스트는 최소화.`;
   }
 
-  return `실사형 이미지, 한국 오피스 촬영 느낌, 밝고 신뢰감 있는 화면, 원문: ${text}`;
+  if (kind === "video") {
+    return `짧은 영상 장면. ${visualCue}. 4초 내외, 프레임 안정성 우선, 핵심 메시지가 바로 읽히는 연출.`;
+  }
+
+  return `실사 이미지 장면. ${visualCue}. 한국형 오피스 또는 생활 공간, 자연광 느낌, 과장 없는 현실적 화면.`;
 }
 
 function kindMeta(kind: RecommendationKind) {
   switch (kind) {
     case "image_real":
-      return { label: "실사 형식", reason: "현실적인 보조 컷이 설득력을 높입니다." };
+      return { label: "실사 형식", reason: "현실감 있는 보조 장면이 문장의 설득력을 높입니다." };
     case "image_illustration":
-      return { label: "일러스트 형식", reason: "복잡한 설명을 한 장면으로 정리하기 좋습니다." };
+      return { label: "일러스트 형식", reason: "복잡한 개념을 한 장면으로 정리하기 좋습니다." };
     case "video":
-      return { label: "영상 형식", reason: "변화가 있는 장면은 짧은 모션 클립이 더 자연스럽습니다." };
-    case "point_caption":
-      return { label: "포인트 자막", reason: "핵심 문장을 별도 MOGRT로 강조하면 전달력이 올라갑니다." };
+      return { label: "영상 형식", reason: "변화가 느껴지는 문장은 짧은 영상이 더 자연스럽습니다." };
     default:
-      return { label: "자료", reason: "보조 자료를 추천합니다." };
+      return { label: "자료 형식", reason: "보조 자료를 추천합니다." };
   }
 }
 
@@ -134,31 +132,45 @@ export function buildRecommendations(segments: SubtitleSegment[]) {
   return segments.map((segment, index) => {
     const kind = pickRecommendationKind(segment.text, index);
     const meta = kindMeta(kind);
+    const visualCue = buildVisualCue(segment.text, kind);
 
     return {
       id: `rec-${segment.id}`,
       segmentId: segment.id,
       kind,
       label: meta.label,
-      title: segment.text.length > 38 ? `${segment.text.slice(0, 38)}...` : segment.text,
-      prompt: buildPrompt(segment.text, kind),
+      title: segment.text.length > 44 ? `${segment.text.slice(0, 44)}...` : segment.text,
+      prompt: buildPrompt(segment.text, kind, visualCue),
+      visualCue,
       reason: meta.reason,
       timecode: segment.startTimecode
     } satisfies RecommendationDraft;
   });
 }
 
-export function createXmlExport(segments: SubtitleSegment[], selectedIds: string[], recommendations: RecommendationDraft[]) {
+export function createXmlExport(
+  segments: SubtitleSegment[],
+  selectedIds: string[],
+  recommendations: RecommendationDraft[],
+  settings: ExportSettings
+) {
   const selectedMap = new Map(recommendations.filter((item) => selectedIds.includes(item.id)).map((item) => [item.segmentId, item]));
+  const variantCount = Math.max(1, settings.variantsPerSegment || 1);
   const items = segments
     .map((segment) => {
       const recommendation = selectedMap.get(segment.id);
+      const variants = recommendation
+        ? Array.from({ length: variantCount }, (_, index) => {
+            const variantIndex = index + 1;
+            return `\n    <asset kind="${recommendation.kind}" label="${recommendation.label}" variant="${variantIndex}" aspect_ratio="${escapeXml(settings.aspectRatio)}">${escapeXml(recommendation.prompt)}</asset>`;
+          }).join("")
+        : "";
 
-      return `  <segment id="${segment.id}" start="${segment.startTimecode}" end="${segment.endTimecode}">\n    <caption>${escapeXml(segment.text)}</caption>${recommendation ? `\n    <asset kind="${recommendation.kind}" label="${recommendation.label}">${escapeXml(recommendation.prompt)}</asset>` : ""}\n  </segment>`;
+      return `  <segment id="${segment.id}" start="${segment.startTimecode}" end="${segment.endTimecode}">\n    <caption>${escapeXml(segment.text)}</caption>${variants}\n  </segment>`;
     })
     .join("\n");
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<premiereAutomationExport>\n${items}\n</premiereAutomationExport>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<premiereAutomationExport variants_per_segment="${variantCount}" aspect_ratio="${escapeXml(settings.aspectRatio)}">\n${items}\n</premiereAutomationExport>`;
 }
 
 function escapeXml(value: string) {
