@@ -494,29 +494,41 @@ export default function DashboardApp() {
 
     try {
       const parsed = parseSrt(selectedProject.srtText);
+      const targetSegments = filterSegmentsByFrequency(parsed, recommendationSettings);
       setSegments(parsed);
+      setRecommendations([]);
       setIsClassifying(true);
 
-      const response = await fetch("/api/recommendations", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          apiKey: apiKeys.anthropic,
-          segments: parsed,
-          frequencySeconds: recommendationSettings.frequencySeconds
-        })
-      });
+      const collected: ClaudeRecommendationPayload[] = [];
 
-      const payload = (await response.json()) as { error?: string; items?: ClaudeRecommendationPayload[] };
+      for (let index = 0; index < targetSegments.length; index += 1) {
+        const segment = targetSegments[index];
+        setBannerMessage(`Claude가 구간 ${segment.id} 분석 중... (${index + 1}/${targetSegments.length})`);
 
-      if (!response.ok || !payload.items) {
-        throw new Error(payload.error || "Claude 분류에 실패했습니다.");
+        const response = await fetch("/api/recommendations", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            apiKey: apiKeys.anthropic,
+            segments: [segment],
+            frequencySeconds: recommendationSettings.frequencySeconds
+          })
+        });
+
+        const payload = await parseJsonSafely(response);
+
+        if (!response.ok || !payload.items) {
+          throw new Error(payload.error || `Claude가 ${segment.id} 구간 분석에 실패했습니다.`);
+        }
+
+        if (payload.items[0]) {
+          collected.push(payload.items[0]);
+          setRecommendations(hydrateRecommendations([...collected]));
+        }
       }
 
-      const nextRecommendations = hydrateRecommendations(payload.items);
-      setRecommendations(nextRecommendations);
       setReviewStep(2);
-      setBannerMessage(`Claude가 1차 검수용 추천 항목 ${nextRecommendations.length}개를 만들었습니다.`);
+      setBannerMessage(`Claude가 구간별 분석으로 추천 항목 ${collected.length}개를 만들었습니다.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "AI 자동 분류에 실패했습니다.";
       setBannerMessage(message);
@@ -525,7 +537,6 @@ export default function DashboardApp() {
       setIsClassifying(false);
     }
   }
-
   function updateDecision(id: string, decision: RecommendationState["decision"]) {
     setRecommendations((current) =>
       current.map((item) =>
@@ -1087,6 +1098,8 @@ export default function DashboardApp() {
     </main>
   );
 }
+
+
 
 
 

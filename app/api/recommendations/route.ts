@@ -28,17 +28,26 @@ function extractTextPayload(payload: unknown) {
     .join("\n");
 }
 
-function extractJsonArray(text: string) {
+function extractJsonPayload(text: string) {
   const fencedMatch = text.match(/```json\s*([\s\S]*?)```/i) ?? text.match(/```\s*([\s\S]*?)```/i);
-  const candidate = fencedMatch?.[1] ?? text;
-  const start = candidate.indexOf("[");
-  const end = candidate.lastIndexOf("]");
+  const candidate = (fencedMatch?.[1] ?? text).trim();
+  const arrayStart = candidate.indexOf("[");
+  const arrayEnd = candidate.lastIndexOf("]");
+  const objectStart = candidate.indexOf("{");
+  const objectEnd = candidate.lastIndexOf("}");
 
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("Claude 응답에서 JSON 배열을 찾지 못했습니다.");
+  let jsonText = "";
+
+  if (arrayStart !== -1 && arrayEnd > arrayStart) {
+    jsonText = candidate.slice(arrayStart, arrayEnd + 1);
+  } else if (objectStart !== -1 && objectEnd > objectStart) {
+    jsonText = candidate.slice(objectStart, objectEnd + 1);
+  } else {
+    throw new Error("Claude 응답에서 JSON 객체를 찾지 못했습니다.");
   }
 
-  return JSON.parse(candidate.slice(start, end + 1)) as ClaudeRecommendation[];
+  const parsed = JSON.parse(jsonText) as ClaudeRecommendation | ClaudeRecommendation[];
+  return Array.isArray(parsed) ? parsed : [parsed];
 }
 
 function validateKind(kind: string): kind is RecommendationKind {
@@ -64,8 +73,9 @@ export async function POST(request: NextRequest) {
       "너는 프리미어 편집용 보조 소재 추천기다.",
       "지금 전달된 자막 구간 하나에 대해 가장 어울리는 보조 소재를 추천하라.",
       `이 요청은 구간별 순차 호출 중 하나이며, 기준 빈도는 약 ${frequencySeconds}초다.`,
-      "각 항목마다 아래 JSON 배열 형식만 반환하라.",
-      "[{'segmentId':'001','kind':'image_real|image_illustration|video','title':'...','visualCue':'...','prompt':'...','reason':'...','timecode':'00:00:00,000'}]",
+      "아래 JSON 객체 하나만 반환하라.",
+      '{"segmentId":"001","kind":"image_real","title":"...","visualCue":"...","prompt":"...","reason":"...","timecode":"00:00:00,000"}',
+      "kind는 image_real, image_illustration, video 중 하나만 사용하라.",
       "title은 짧고 명확하게, visualCue는 화면 설명, prompt는 생성 모델에 바로 넣을 수 있게 구체적으로 작성하라.",
       "문장 그대로 반복하지 말고, 진짜로 어울리는 보조 화면을 추천하라.",
       "응답에는 JSON 외의 설명을 넣지 마라.",
@@ -103,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     const payload = await response.json();
     const text = extractTextPayload(payload);
-    const items = extractJsonArray(text)
+    const items = extractJsonPayload(text)
       .filter((item) => validateKind(item.kind))
       .map((item) => ({
         ...item,
@@ -119,3 +129,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
