@@ -21,6 +21,7 @@ import { mockApiKeyFields } from "../lib/mock-data";
 import {
   buildRecommendations,
   createXmlExport,
+  filterSegmentsByFrequency,
   parseSrt,
   type RecommendationDraft,
   type RecommendationKind,
@@ -191,6 +192,20 @@ function hydrateRecommendations(items: ClaudeRecommendationPayload[]): Recommend
     decision: "pending",
     generated: false
   }));
+}
+
+async function parseJsonSafely(response: Response) {
+  const raw = await response.text();
+
+  if (!raw.trim()) {
+    throw new Error("응답 본문이 비어 있습니다.");
+  }
+
+  try {
+    return JSON.parse(raw) as { error?: string; items?: ClaudeRecommendationPayload[] };
+  } catch {
+    throw new Error(raw.slice(0, 280));
+  }
 }
 
 export default function DashboardApp() {
@@ -1072,6 +1087,9 @@ export default function DashboardApp() {
     </main>
   );
 }
+
+
+
 
 
 
