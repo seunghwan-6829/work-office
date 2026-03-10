@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
 
   const prompt = [
     "너는 프리미어 편집용 보조 소재 추천기다.",
-    "주어진 자막 구간 중 추천 빈도를 고려해 대표 구간만 추려라.",
-    `추천 최소 간격은 약 ${frequencySeconds}초다.`,
+    "지금 전달된 자막 구간 하나에 대해 가장 어울리는 보조 소재를 추천하라.",
+    `이 요청은 구간별 순차 호출 중 하나이며, 기준 빈도는 약 ${frequencySeconds}초다.`,
     "각 항목마다 아래 JSON 배열 형식만 반환하라.",
     "[{'segmentId':'001','kind':'image_real|image_illustration|video','title':'...','visualCue':'...','prompt':'...','reason':'...','timecode':'00:00:00,000'}]",
     "title은 짧고 명확하게, visualCue는 화면 설명, prompt는 생성 모델에 바로 넣을 수 있게 구체적으로 작성하라.",
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 2400,
+      max_tokens: 900,
       temperature: 0.4,
       messages: [{ role: "user", content: prompt }]
     })
@@ -114,5 +114,6 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ items });
 }
+
 
 

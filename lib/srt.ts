@@ -137,6 +137,20 @@ function kindMeta(kind: RecommendationKind) {
   }
 }
 
+export function filterSegmentsByFrequency(segments: SubtitleSegment[], settings?: RecommendationSettings) {
+  const minGapMs = Math.max(1, settings?.frequencySeconds ?? 5) * 1000;
+  let lastSelectedStart = -Infinity;
+
+  return segments.filter((segment) => {
+    if (segment.startMs - lastSelectedStart < minGapMs) {
+      return false;
+    }
+
+    lastSelectedStart = segment.startMs;
+    return true;
+  });
+}
+
 export function buildRecommendations(segments: SubtitleSegment[], settings?: RecommendationSettings) {
   const minGapMs = Math.max(1, settings?.frequencySeconds ?? 5) * 1000;
   let lastSelectedStart = -Infinity;
@@ -209,3 +223,4 @@ function escapeXml(value: string) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
 }
+
