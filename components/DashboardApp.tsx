@@ -524,10 +524,11 @@ export default function DashboardApp() {
         if (payload.items[0]) {
           collected.push(payload.items[0]);
           setRecommendations(hydrateRecommendations([...collected]));
+          setReviewStep(5);
         }
       }
 
-      setReviewStep(2);
+      setReviewStep(5);
       setBannerMessage(`Claude가 구간별 분석으로 추천 항목 ${collected.length}개를 만들었습니다.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "AI 자동 분류에 실패했습니다.";
@@ -950,7 +951,7 @@ export default function DashboardApp() {
                 </div>
               </div>
 
-              {reviewStep < 5 ? (
+              {reviewStep < 5 && reviewItems.length === 0 ? (
                 <div className="review-empty">
                   <strong>최종 검수 단계가 아직 열리지 않았습니다.</strong>
                   <p>왼쪽에서 2차 검수와 최종 검수 준비 단계를 차례대로 열어 주세요.</p>
