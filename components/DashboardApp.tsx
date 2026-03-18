@@ -75,6 +75,22 @@ function mapAuthError(message: string) {
     return "이미 가입된 이메일입니다. 로그인으로 진행해 주세요.";
   }
 
+  if (normalized.includes("email address") && normalized.includes("invalid")) {
+    return "이메일 형식이 올바르지 않습니다.";
+  }
+
+  if (normalized.includes("signup is disabled")) {
+    return "Supabase에서 이메일 회원가입이 비활성화되어 있습니다.";
+  }
+
+  if (normalized.includes("database error saving new user")) {
+    return "회원가입은 시도됐지만 Supabase 사용자 저장 중 오류가 발생했습니다. Auth 설정을 확인해 주세요.";
+  }
+
+  if (normalized.includes("invalid api key")) {
+    return "Supabase URL 또는 공개 키 설정이 잘못되었습니다.";
+  }
+
   return message;
 }
 
