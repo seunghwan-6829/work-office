@@ -100,6 +100,37 @@ function getAgentCardStyle(accent: string) {
   } as CSSProperties;
 }
 
+type OfficeMapSpot = {
+  left: string;
+  top: string;
+  lane?: "upper" | "lower";
+};
+
+const roomMapSpots: Record<string, OfficeMapSpot[]> = {
+  "room-order": [{ left: "7%", top: "16%" }],
+  "room-source": [{ left: "25%", top: "16%" }],
+  "room-ocr": [{ left: "47%", top: "16%" }],
+  "room-copy": [{ left: "66%", top: "16%" }],
+  "room-publish": [{ left: "19%", top: "76%" }],
+  "room-manager": [{ left: "56%", top: "76%" }],
+  "room-ceo": [
+    { left: "78%", top: "48%", lane: "upper" },
+    { left: "83%", top: "48%", lane: "upper" },
+    { left: "88%", top: "48%", lane: "upper" }
+  ]
+};
+
+const corridorSpots: OfficeMapSpot[] = [
+  { left: "10%", top: "48%", lane: "upper" },
+  { left: "24%", top: "48%", lane: "upper" },
+  { left: "39%", top: "48%", lane: "upper" },
+  { left: "54%", top: "48%", lane: "upper" },
+  { left: "16%", top: "90%", lane: "lower" },
+  { left: "36%", top: "90%", lane: "lower" },
+  { left: "58%", top: "90%", lane: "lower" },
+  { left: "72%", top: "90%", lane: "lower" }
+];
+
 function buildManagerSuggestions(project: ProjectRecord) {
   const waitingReports = project.reports.filter((report) => report.status === "waiting").length;
   const workingAgents = project.agents.filter((agent) => agent.status === "working").length;
@@ -127,6 +158,26 @@ function buildQuickReport(agent: AgentRecord, brief: string) {
   }
 
   return `${agent.name}이 '${trimmed.slice(0, 36)}' 업무를 마치고 핵심 이슈와 다음 액션을 정리해 왔습니다.`;
+}
+
+function getAgentMapSpot(project: ProjectRecord, agent: AgentRecord, queueIndex: number) {
+  if (agent.status === "waiting_ceo") {
+    const ceoQueue = roomMapSpots["room-ceo"];
+    return ceoQueue[Math.min(queueIndex, ceoQueue.length - 1)] ?? ceoQueue[0];
+  }
+
+  if (agent.status === "working") {
+    const roomAgents = project.agents.filter(
+      (item) => item.currentRoomId === agent.currentRoomId && item.status === "working"
+    );
+    const roomIndex = roomAgents.findIndex((item) => item.id === agent.id);
+    const roomSpots = roomMapSpots[agent.currentRoomId] ?? corridorSpots;
+    return roomSpots[Math.min(Math.max(roomIndex, 0), roomSpots.length - 1)] ?? corridorSpots[0];
+  }
+
+  const idleAgents = project.agents.filter((item) => item.status === "idle");
+  const idleIndex = idleAgents.findIndex((item) => item.id === agent.id);
+  return corridorSpots[Math.min(Math.max(idleIndex, 0), corridorSpots.length - 1)] ?? corridorSpots[0];
 }
 
 export default function DashboardApp() {
@@ -167,6 +218,21 @@ export default function DashboardApp() {
     () => (selectedProject ? buildManagerSuggestions(selectedProject) : []),
     [selectedProject]
   );
+  const mapAgents = useMemo(() => {
+    if (!selectedProject) {
+      return [];
+    }
+
+    const waitingQueue = selectedProject.agents.filter((agent) => agent.status === "waiting_ceo");
+
+    return selectedProject.agents.map((agent) => {
+      const queueIndex = waitingQueue.findIndex((item) => item.id === agent.id);
+      return {
+        agent,
+        spot: getAgentMapSpot(selectedProject, agent, Math.max(queueIndex, 0))
+      };
+    });
+  }, [selectedProject]);
 
   useEffect(() => {
     let mounted = true;
@@ -587,8 +653,80 @@ export default function DashboardApp() {
               <div className="section-header">
                 <div>
                   <p className="section-kicker">Office Layout</p>
-                  <h2>방 배치와 현재 인원</h2>
+                  <h2>도트형 오피스 맵</h2>
                 </div>
+              </div>
+              <div className="office-stage">
+                <div className="office-stage-rooms office-stage-top">
+                  {selectedProject.rooms
+                    .filter((room) => room.id !== "room-publish" && room.id !== "room-manager" && room.id !== "room-ceo")
+                    .map((room) => (
+                      <article className="map-room" key={room.id}>
+                        <span className="map-room-name">{room.title}</span>
+                        <div className="map-room-furniture" />
+                      </article>
+                    ))}
+                </div>
+
+                <div className="office-stage-corridor office-stage-corridor-top">
+                  <div className="office-door-row">
+                    {["1", "2", "3", "4", "5", "6"].map((label) => (
+                      <span className="office-door" key={label}>
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="office-stage-rooms office-stage-bottom">
+                  <article className="map-room map-room-small">
+                    <span className="map-room-name">썸네일 대기실</span>
+                    <div className="map-room-furniture map-room-furniture-thin" />
+                  </article>
+                  <article className="map-room">
+                    <span className="map-room-name">업로드 준비실</span>
+                    <div className="map-room-furniture" />
+                  </article>
+                  <article className="map-room">
+                    <span className="map-room-name">중간 관리자실</span>
+                    <div className="map-room-furniture map-room-furniture-monitor" />
+                  </article>
+                  <article className="map-room map-room-ceo">
+                    <span className="map-room-name">CEO실</span>
+                    <div className="map-room-furniture map-room-furniture-ceo" />
+                  </article>
+                </div>
+
+                <div className="office-stage-corridor office-stage-corridor-bottom">
+                  <div className="office-door-row office-door-row-bottom">
+                    {["7", "8", "9", "10", "11"].map((label) => (
+                      <span className="office-door" key={label}>
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {mapAgents.map(({ agent, spot }) => (
+                  <button
+                    className={`office-walker status-${agent.status}`}
+                    key={agent.id}
+                    onClick={() => setSelectedAgentId(agent.id)}
+                    style={
+                      {
+                        "--walker-left": spot.left,
+                        "--walker-top": spot.top,
+                        "--agent-accent": agent.accent
+                      } as CSSProperties
+                    }
+                  >
+                    <span className={`walker-hair ${agent.hairClass}`} />
+                    <span className="walker-face" />
+                    <span className={`walker-body ${agent.outfitClass}`} />
+                    <span className="walker-shadow" />
+                    <span className="walker-name">{agent.name}</span>
+                  </button>
+                ))}
               </div>
               <div className="office-layout">
                 {selectedProject.rooms.map((room) => {
