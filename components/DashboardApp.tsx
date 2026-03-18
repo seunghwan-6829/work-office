@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   createSampleProject,
@@ -26,6 +26,10 @@ type MapSpot = {
   left: string;
   top: string;
   facing: AgentFacing;
+};
+
+type DisplayedSpot = MapSpot & {
+  moving: boolean;
 };
 
 const ceoSpritePaths: Record<CeoFacing, string> = {
@@ -75,6 +79,16 @@ const mapInstructions = [
   "완료 보고를 누르면 CEO실 앞 대기열로 이동합니다."
 ];
 
+const routeWaypoints = {
+  upperHub: { left: "50%", top: "41.5%", facing: "side" as AgentFacing },
+  lowerHub: { left: "45%", top: "82.5%", facing: "side" as AgentFacing },
+  ceoHub: { left: "72%", top: "41.5%", facing: "side" as AgentFacing }
+};
+
+function percentNumber(value: string) {
+  return Number.parseFloat(value.replace("%", ""));
+}
+
 function mapAuthError(message: string) {
   const normalized = message.toLowerCase();
   if (normalized.includes("invalid login credentials")) return "이메일 또는 비밀번호가 올바르지 않습니다.";
@@ -110,6 +124,30 @@ function buildQuickReport(agent: AgentRecord, brief: string) {
   return `${agent.name}이 '${trimmed.slice(0, 30)}' 업무를 마치고 결과를 보고하려고 CEO실 앞에서 대기 중입니다.`;
 }
 
+function buildMovementRoute(from: MapSpot, to: MapSpot) {
+  const fromTop = percentNumber(from.top);
+  const toTop = percentNumber(to.top);
+  const route: MapSpot[] = [];
+
+  if (fromTop <= 55 && toTop <= 55) {
+    route.push(routeWaypoints.upperHub);
+  } else if (fromTop > 55 && toTop > 55) {
+    route.push(routeWaypoints.lowerHub);
+  } else {
+    route.push(fromTop > 55 ? routeWaypoints.lowerHub : routeWaypoints.upperHub);
+    route.push(toTop > 55 ? routeWaypoints.lowerHub : routeWaypoints.upperHub);
+  }
+
+  if (percentNumber(to.left) >= 74 && percentNumber(to.top) <= 50) {
+    route.push(routeWaypoints.ceoHub);
+  }
+
+  return route.filter(
+    (spot, index, list) =>
+      index === 0 || spot.left !== list[index - 1]?.left || spot.top !== list[index - 1]?.top
+  );
+}
+
 export default function DashboardApp() {
   const missingEnvKeys = getMissingPublicEnvKeys();
   const supabaseConfig = getSupabaseBrowserConfig();
@@ -129,6 +167,10 @@ export default function DashboardApp() {
   const [briefMessage, setBriefMessage] = useState("");
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [displayedSpots, setDisplayedSpots] = useState<Record<string, DisplayedSpot>>({});
+  const displayedSpotsRef = useRef<Record<string, DisplayedSpot>>({});
+  const moveTimeoutsRef = useRef<number[]>([]);
+  const prevTargetsRef = useRef<Record<string, MapSpot>>({});
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -232,6 +274,71 @@ export default function DashboardApp() {
     setBriefDraft(selectedAgent.lastBrief);
     setBriefMessage("");
   }, [selectedAgent]);
+
+  useEffect(() => {
+    displayedSpotsRef.current = displayedSpots;
+  }, [displayedSpots]);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setDisplayedSpots({});
+      displayedSpotsRef.current = {};
+      prevTargetsRef.current = {};
+      return;
+    }
+
+    if (Object.keys(displayedSpotsRef.current).length === 0) {
+      const initial = Object.fromEntries(
+        mapAgents.map(({ agent, spot }) => [agent.id, { ...spot, moving: false } satisfies DisplayedSpot])
+      );
+      setDisplayedSpots(initial);
+      displayedSpotsRef.current = initial;
+      prevTargetsRef.current = Object.fromEntries(mapAgents.map(({ agent, spot }) => [agent.id, spot]));
+      return;
+    }
+
+    moveTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    moveTimeoutsRef.current = [];
+
+    mapAgents.forEach(({ agent, spot }) => {
+      const previousSpot = prevTargetsRef.current[agent.id] ?? spot;
+      const currentSpot = displayedSpotsRef.current[agent.id] ?? { ...previousSpot, moving: false };
+      const spotChanged = previousSpot.left !== spot.left || previousSpot.top !== spot.top;
+
+      if (!spotChanged) {
+        setDisplayedSpots((current) => ({
+          ...current,
+          [agent.id]: { ...spot, moving: false }
+        }));
+        return;
+      }
+
+      const route = buildMovementRoute(previousSpot, spot);
+      const steps = [...route, spot];
+
+      setDisplayedSpots((current) => ({
+        ...current,
+        [agent.id]: { ...currentSpot, moving: true }
+      }));
+
+      steps.forEach((step, index) => {
+        const timeoutId = window.setTimeout(() => {
+          setDisplayedSpots((current) => ({
+            ...current,
+            [agent.id]: { ...step, moving: index < steps.length - 1 }
+          }));
+        }, 520 * (index + 1));
+        moveTimeoutsRef.current.push(timeoutId);
+      });
+    });
+
+    prevTargetsRef.current = Object.fromEntries(mapAgents.map(({ agent, spot }) => [agent.id, spot]));
+
+    return () => {
+      moveTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      moveTimeoutsRef.current = [];
+    };
+  }, [mapAgents, selectedProject]);
 
   function persistProjects(nextProjects: ProjectRecord[]) {
     const email = session?.user.email;
@@ -476,15 +583,19 @@ export default function DashboardApp() {
         />
 
         {mapAgents.map(({ agent, spot }) => (
+          (() => {
+            const visualSpot = displayedSpots[agent.id] ?? { ...spot, moving: false };
+            return (
           <button
-            className={`office-walker office-walker-large status-${agent.status} facing-${spot.facing}`}
+            className={`office-walker office-walker-large status-${agent.status} facing-${visualSpot.facing} ${visualSpot.moving ? "is-moving" : ""}`}
             key={agent.id}
             onClick={() => setSelectedAgentId(agent.id)}
             style={
               {
-                "--walker-left": spot.left,
-                "--walker-top": spot.top,
-                "--agent-accent": agent.accent
+                "--walker-left": visualSpot.left,
+                "--walker-top": visualSpot.top,
+                "--agent-accent": agent.accent,
+                "--walker-drift": `${(agent.name.charCodeAt(0) % 5) * 0.18 + 1.2}s`
               } as CSSProperties
             }
           >
@@ -494,6 +605,8 @@ export default function DashboardApp() {
             <span className="walker-shadow" />
             <span className="walker-name">{agent.name}</span>
           </button>
+            );
+          })()
         ))}
 
         {selectedAgent ? (
