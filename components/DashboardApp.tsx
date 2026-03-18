@@ -1,12 +1,10 @@
-﻿
 "use client";
 
-import Link from "next/link";
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { isAdminEmail } from "../lib/admin";
 import {
   createEmptyProject,
+  createSampleProject,
   getCurrentSession,
   loadProjects,
   saveProjects,
@@ -14,138 +12,44 @@ import {
   signOut,
   signUpWithEmail,
   subscribeToAuthChanges,
-  type ProjectRecord
+  type AgentRecord,
+  type ProjectRecord,
+  type ReportRecord
 } from "../lib/app-data";
 import { getMissingPublicEnvKeys, getSupabaseBrowserConfig, getSupabaseProjectRefFromUrl } from "../lib/env";
-import { mockApiKeyFields } from "../lib/mock-data";
-import {
-  buildRecommendations,
-  createXmlExport,
-  filterSegmentsByFrequency,
-  parseSrt,
-  type RecommendationDraft,
-  type RecommendationKind,
-  type RecommendationSettings,
-  type SubtitleSegment
-} from "../lib/srt";
-
-type RecommendationState = RecommendationDraft & {
-  decision: "selected" | "excluded" | "pending";
-  generated: boolean;
-};
+import { mockApiKeyFields, officeRoomSeeds, quickBriefTemplates } from "../lib/mock-data";
 
 type AuthMode = "signin" | "signup";
-type ReviewStep = 2 | 3 | 4 | 5;
-
-type ClaudeRecommendationPayload = {
-  segmentId: string;
-  kind: RecommendationKind;
-  title: string;
-  visualCue: string;
-  prompt: string;
-  reason: string;
-  timecode: string;
-};
 
 const T = {
-  loading: "작업 공간을 준비하고 있습니다...",
-  appKicker: "PREMIERE AUTOMATION",
-  heroLine1: "프로젝트 단위 편집 자동화",
-  heroLine2: "워크스페이스",
-  authCopy: "SRT 업로드부터 1차 검수, 최종 검수, XML 출력까지 한 흐름으로 정리합니다.",
+  loading: "오피스를 불러오는 중입니다...",
+  appKicker: "COMMERCE EMPIRE",
+  heroLine1: "캐릭터가 움직이는",
+  heroLine2: "AI 오피스 운영실",
+  authCopy:
+    "담당자를 클릭해 짧게 업무를 브리핑하고, 각자 방에서 작업시킨 뒤, 완료되면 CEO실로 와서 보고받는 흐름을 웹으로 먼저 만듭니다.",
+  authHint: "Supabase 이메일 로그인으로 바로 시작할 수 있습니다.",
   signin: "로그인",
   signup: "회원가입",
+  createAccount: "계정 만들기",
   email: "이메일",
   password: "비밀번호",
-  createAccount: "계정 만들기",
-  authHint: "이메일과 비밀번호로 바로 시작할 수 있습니다.",
-  workspace: "워크스페이스",
-  home: "홈",
-  adminPage: "관리자 페이지",
-  projects: "프로젝트",
-  noProjects: "프로젝트가 없습니다.",
-  logout: "로그아웃",
-  settings: "설정",
-  projectHome: "프로젝트 홈",
-  homeTitle: "프로젝트 중심으로 작업 흐름을 관리합니다.",
-  homeCopy: "왼쪽에서 프로젝트를 선택하고, 오른쪽 상세 화면에서 SRT 입력과 검수를 이어서 진행합니다.",
-  overview: "개요",
-  account: "계정",
-  newProject: "새 프로젝트",
-  allProjects: "전체 프로젝트",
+  workspace: "운영실",
+  home: "개요",
+  admin: "설정",
+  projects: "회사",
+  noProjects: "회사 데이터가 없습니다.",
+  newProject: "새 회사",
+  selectedProject: "선택한 회사",
   currentUser: "현재 사용자",
   connectionState: "연결 상태",
   ready: "준비 완료",
-  checkNeeded: "확인 필요",
-  selectedProject: "선택한 프로젝트",
-  recentUpdate: "최근 수정",
-  segmentCount: "구간",
-  selectedCount: "선택",
-  generatedCount: "생성",
-  currentStatus: "현재 상태",
-  srtStep: "1단계",
-  srtInput: "SRT 입력",
-  fileUpload: "파일 업로드",
-  openSrt: "SRT 열기",
-  srtConnected: "SRT가 연결되어 있습니다.",
-  noSrt: "아직 SRT가 없습니다.",
-  firstReviewStep: "2단계",
-  firstReview: "1차 검수",
-  autoClassify: "AI 자동 분류",
-  generationOptions: "생성 옵션",
-  generationOptionsTitle: "생성 빈도와 출력 옵션",
-  recommendationFrequency: "추천 빈도",
-  perSegmentVariants: "구간당 생성 개수",
-  aspectRatio: "비율",
-  secondReviewStep: "3단계",
-  secondReview: "2차 검수",
-  finalPrepStep: "4단계",
-  finalPrep: "최종 검수 준비",
-  finalReviewStep: "5단계",
-  finalReview: "최종 검수",
-  openSecondReview: "2차 검수 열기",
-  openFinalPrep: "최종 검수 준비",
-  openFinalReview: "최종 검수 열기",
-  selectAll: "전체 선택",
-  generateAll: "전체 항목 생성",
-  generating: "생성 준비 중...",
-  downloadXml: "XML 다운로드",
-  sourceSentence: "대본 문장",
-  recommendationDesc: "추천 정보",
-  kind: "형식",
-  realImage: "실사 형식",
-  illustration: "일러스트 형식",
-  video: "영상 형식",
-  visualCue: "떠오르는 장면 설명",
-  prompt: "생성 프롬프트",
-  select: "선택",
-  selected: "선택됨",
-  exclude: "제외",
-  beforeGeneration: "생성 전",
-  readyToGenerate: "생성 준비 완료",
-  segmentLabel: "세그먼트",
-  recommendationEmpty: "추천 항목이 아직 없습니다.",
-  providerKeys: "프로바이더 키",
-  close: "닫기",
+  checkNeeded: "설정 필요",
+  logout: "로그아웃",
+  settings: "API 설정",
   save: "저장",
-  upload: "업로드",
-  clearSrt: "SRT 삭제",
-  renameProject: "프로젝트 저장",
-  deleteProject: "프로젝트 삭제",
-  aiSetupRequired: "Claude API 키를 연결해야 AI 자동 분류를 진행할 수 있습니다."
+  close: "닫기"
 } as const;
-
-const kindClassMap: Record<RecommendationKind, string> = {
-  image_real: "badge-image",
-  image_illustration: "badge-illustration",
-  video: "badge-video"
-};
-
-const kindLabelMap: Record<RecommendationKind, string> = {
-  image_real: T.realImage,
-  image_illustration: T.illustration,
-  video: T.video
-};
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
@@ -171,45 +75,45 @@ function mapAuthError(message: string) {
     return "이미 가입된 이메일입니다. 로그인으로 진행해 주세요.";
   }
 
-  if (normalized.includes("password should be at least")) {
-    return "비밀번호는 더 길게 입력해 주세요.";
-  }
-
   return message;
 }
 
-function hydrateRecommendations(items: ClaudeRecommendationPayload[]): RecommendationState[] {
-  return items.map((item) => ({
-    id: `rec-${item.segmentId}`,
-    segmentId: item.segmentId,
-    kind: item.kind,
-    label: kindLabelMap[item.kind],
-    title: item.title,
-    prompt: item.prompt,
-    visualCue: item.visualCue,
-    reason: item.reason,
-    timecode: item.timecode,
-    decision: "pending",
-    generated: false
-  }));
+function getAgentCardStyle(accent: string) {
+  return {
+    "--agent-accent": accent
+  } as CSSProperties;
 }
 
-async function parseJsonSafely(response: Response) {
-  const raw = await response.text();
+function buildManagerSuggestions(project: ProjectRecord) {
+  const waitingReports = project.reports.filter((report) => report.status === "waiting").length;
+  const workingAgents = project.agents.filter((agent) => agent.status === "working").length;
+  const idleAgents = project.agents.filter((agent) => agent.status === "idle").length;
 
-  if (!raw.trim()) {
-    throw new Error("응답 본문이 비어 있습니다.");
+  const suggestions = [
+    waitingReports > 0
+      ? `CEO실 앞 보고 대기 ${waitingReports}건이 흐름을 멈추고 있습니다. 보고를 먼저 처리하는 것이 좋습니다.`
+      : "CEO실 앞 대기 인원이 없습니다. 승인 흐름은 원활합니다.",
+    workingAgents > idleAgents
+      ? "현재 가동률이 높습니다. 중간 관리자가 병목 방을 계속 모니터링해야 합니다."
+      : "유휴 인력이 남아 있어 신규 실험 업무를 넣기 좋습니다.",
+    project.tasks.some((task) => task.status === "working")
+      ? "작업 중 태스크가 있으니 모델 라우팅과 실패 로그를 함께 저장해 두는 편이 좋습니다."
+      : "아직 시작되지 않은 상태입니다. 첫 업무 브리핑 템플릿부터 표준화하면 확장성이 좋아집니다."
+  ];
+
+  return suggestions;
+}
+
+function buildQuickReport(agent: AgentRecord, brief: string) {
+  const trimmed = brief.trim();
+  if (!trimmed) {
+    return `${agent.name}이 빈 브리핑 상태로 완료 보고를 올렸습니다.`;
   }
 
-  try {
-    return JSON.parse(raw) as { error?: string; items?: ClaudeRecommendationPayload[] };
-  } catch {
-    throw new Error(raw.slice(0, 280));
-  }
+  return `${agent.name}이 '${trimmed.slice(0, 36)}' 업무를 마치고 핵심 이슈와 다음 액션을 정리해 왔습니다.`;
 }
 
 export default function DashboardApp() {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const missingEnvKeys = getMissingPublicEnvKeys();
   const supabaseConfig = getSupabaseBrowserConfig();
   const projectRef = getSupabaseProjectRefFromUrl(supabaseConfig.url);
@@ -223,43 +127,30 @@ export default function DashboardApp() {
   const [authMessage, setAuthMessage] = useState("");
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [segments, setSegments] = useState<SubtitleSegment[]>([]);
-  const [recommendations, setRecommendations] = useState<RecommendationState[]>([]);
-  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
-  const [bannerMessage, setBannerMessage] = useState("프로젝트를 선택하면 SRT부터 단계별로 작업할 수 있습니다.");
-  const [floatingNotice, setFloatingNotice] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isClassifying, setIsClassifying] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSrtModalOpen, setIsSrtModalOpen] = useState(false);
-  const [variantsPerSegment, setVariantsPerSegment] = useState("3");
-  const [aspectRatio, setAspectRatio] = useState("16:9");
-  const [frequencySeconds, setFrequencySeconds] = useState("5");
-  const [reviewStep, setReviewStep] = useState<ReviewStep>(2);
-
-  const recommendationSettings = useMemo<RecommendationSettings>(
-    () => ({ frequencySeconds: Math.max(1, Number(frequencySeconds) || 5) }),
-    [frequencySeconds]
-  );
+  const [briefDraft, setBriefDraft] = useState("");
+  const [briefMessage, setBriefMessage] = useState("");
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [bannerMessage, setBannerMessage] = useState("대표가 각 캐릭터에게 업무를 배정할 준비가 되어 있습니다.");
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
     [projects, selectedProjectId]
   );
-  const selectedCount = useMemo(
-    () => recommendations.filter((item) => item.decision === "selected").length,
-    [recommendations]
+  const selectedAgent = useMemo(
+    () => selectedProject?.agents.find((agent) => agent.id === selectedAgentId) ?? null,
+    [selectedProject, selectedAgentId]
   );
-  const generatedCount = useMemo(
-    () => recommendations.filter((item) => item.generated).length,
-    [recommendations]
+  const waitingReports = useMemo(
+    () => selectedProject?.reports.filter((report) => report.status === "waiting") ?? [],
+    [selectedProject]
   );
-  const reviewItems = useMemo(
-    () => recommendations.filter((item) => item.decision !== "excluded"),
-    [recommendations]
+  const providerStorageKey = session?.user.email ? `empire-provider-keys:${session.user.email.toLowerCase()}` : null;
+  const managerSuggestions = useMemo(
+    () => (selectedProject ? buildManagerSuggestions(selectedProject) : []),
+    [selectedProject]
   );
-  const isAdmin = isAdminEmail(session?.user.email);
-  const providerStorageKey = session?.user.email ? `provider-keys:${session.user.email.toLowerCase()}` : null;
 
   useEffect(() => {
     let mounted = true;
@@ -294,9 +185,14 @@ export default function DashboardApp() {
       return;
     }
 
-    const nextProjects = loadProjects(email);
+    const stored = loadProjects(email);
+    const nextProjects = stored.length > 0 ? stored : [createSampleProject()];
     setProjects(nextProjects);
     setSelectedProjectId((current) => current ?? nextProjects[0]?.id ?? null);
+
+    if (stored.length === 0) {
+      saveProjects(email, nextProjects);
+    }
   }, [session?.user.email]);
 
   useEffect(() => {
@@ -306,6 +202,7 @@ export default function DashboardApp() {
     }
 
     const raw = window.localStorage.getItem(providerStorageKey);
+
     if (!raw) {
       setApiKeys({});
       return;
@@ -327,23 +224,39 @@ export default function DashboardApp() {
   }, [apiKeys, providerStorageKey]);
 
   useEffect(() => {
-    if (!selectedProject) {
-      setSegments([]);
-      setRecommendations([]);
-      setReviewStep(2);
+    if (!selectedAgent) {
+      setBriefDraft("");
+      setBriefMessage("");
       return;
     }
 
-    const parsedSegments = selectedProject.srtText ? parseSrt(selectedProject.srtText) : [];
-    setSegments(parsedSegments);
-    setReviewStep(parsedSegments.length > 0 ? 2 : 2);
-  }, [selectedProject]);
+    setBriefDraft(selectedAgent.lastBrief);
+    setBriefMessage("");
+  }, [selectedAgent]);
 
   function persistProjects(nextProjects: ProjectRecord[]) {
     const email = session?.user.email;
     if (!email) return;
     setProjects(nextProjects);
     saveProjects(email, nextProjects);
+  }
+
+  function updateProject(mutator: (project: ProjectRecord) => ProjectRecord) {
+    if (!selectedProject) return;
+
+    const nextProjects = projects.map((project) => {
+      if (project.id !== selectedProject.id) {
+        return project;
+      }
+
+      const nextProject = mutator(project);
+      return {
+        ...nextProject,
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    persistProjects(nextProjects);
   }
 
   async function handleAuthSubmit() {
@@ -361,255 +274,150 @@ export default function DashboardApp() {
     }
 
     const action = authMode === "signin" ? signInWithEmail : signUpWithEmail;
-    const { data, error } = await action(email, password);
+    const { error } = await action(email, password);
 
     if (error) {
       setAuthMessage(mapAuthError(error.message));
       return;
     }
 
-    if (authMode === "signin") {
-      setAuthMessage(
-        data.session
-          ? "로그인되었습니다."
-          : "로그인 요청은 완료되었지만 세션이 바로 생성되지 않았습니다. 이메일 인증 상태를 확인해 주세요."
-      );
-      return;
-    }
-
-    const identities = data.user?.identities ?? [];
-
-    if (!data.user) {
-      setAuthMessage("회원가입 응답을 받지 못했습니다. Supabase Auth 설정을 다시 확인해 주세요.");
-      return;
-    }
-
-    if (identities.length === 0) {
-      setAuthMessage("이미 가입된 이메일이거나 이메일 인증 대기 상태일 수 있습니다. 메일함을 확인하거나 로그인해 주세요.");
-      return;
-    }
-
-    setAuthMessage(
-      data.session
-        ? "회원가입과 동시에 로그인되었습니다."
-        : "회원가입 요청이 완료되었습니다. 이메일 인증이 필요하면 메일함을 확인해 주세요."
-    );
+    setAuthMessage(authMode === "signin" ? "로그인되었습니다." : "회원가입 요청이 완료되었습니다.");
   }
 
   function handleCreateProject() {
-    const name = `프로젝트 ${projects.length + 1}`;
-    const project = createEmptyProject(name);
-    const nextProjects = [project, ...projects];
+    const nextName = `AI 운영실 ${projects.length + 1}`;
+    const nextProject = createEmptyProject(nextName);
+    const nextProjects = [nextProject, ...projects];
     persistProjects(nextProjects);
-    setSelectedProjectId(project.id);
-    setRecommendations([]);
-    setReviewStep(2);
-    setBannerMessage(`${project.name}를 만들었습니다.`);
+    setSelectedProjectId(nextProject.id);
+    setBannerMessage(`${nextName}을 만들었습니다.`);
   }
 
+  function startAgentTask() {
+    if (!selectedProject || !selectedAgent) return;
 
-  function handleProjectRename() {
-    if (!selectedProject) return;
-    const currentIndex = projects.findIndex((project) => project.id === selectedProject.id);
-    const nextName = selectedProject.name.trim() || `프로젝트 ${currentIndex + 1}`;
-    updateProject({ name: nextName });
-    setBannerMessage(`프로젝트 이름을 '${nextName}'로 저장했습니다.`);
-  }
-
-  function handleDeleteProject() {
-    if (!selectedProject) return;
-    const deletedName = selectedProject.name;
-    const nextProjects = projects.filter((project) => project.id !== selectedProject.id);
-    persistProjects(nextProjects);
-    setSelectedProjectId(nextProjects[0]?.id ?? null);
-    setSegments([]);
-    setRecommendations([]);
-    setReviewStep(2);
-    setBannerMessage(`${deletedName}를 삭제했습니다.`);
-  }
-
-  function handleClearSrt() {
-    if (!selectedProject) return;
-    updateProject({ srtText: "" });
-    setSegments([]);
-    setRecommendations([]);
-    setReviewStep(2);
-    setIsSrtModalOpen(false);
-    setBannerMessage("연결된 SRT를 삭제했습니다.");
-  }
-  function updateProject(patch: Partial<ProjectRecord>) {
-    if (!selectedProject) return;
-
-    const nextProjects = projects.map((project) =>
-      project.id === selectedProject.id ? { ...project, ...patch, updatedAt: new Date().toISOString() } : project
-    );
-    persistProjects(nextProjects);
-  }
-
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file || !selectedProject) return;
-
-    const raw = await file.text();
-    updateProject({ srtText: raw });
-    setBannerMessage(`${file.name} 파일을 반영했습니다.`);
-    event.target.value = "";
-  }
-
-  function updateProjectSrtText(value: string) {
-    if (!selectedProject) return;
-
-    setProjects((current) =>
-      current.map((project) => (project.id === selectedProject.id ? { ...project, srtText: value } : project))
-    );
-  }
-
-  function applySrtText() {
-    if (!selectedProject) return;
-
-    try {
-      const parsed = parseSrt(selectedProject.srtText);
-      setSegments(parsed);
-      setRecommendations([]);
-      setReviewStep(2);
-      updateProject({ srtText: selectedProject.srtText });
-      setBannerMessage(`SRT를 반영했고 ${parsed.length}개 구간을 확인했습니다.`);
-      setIsSrtModalOpen(false);
-    } catch (error) {
-      setBannerMessage(error instanceof Error ? error.message : "SRT 처리에 실패했습니다.");
-    }
-  }
-
-  async function handleGenerateRecommendations() {
-    if (!selectedProject?.srtText) {
-      setBannerMessage("먼저 SRT를 입력해 주세요.");
+    const brief = briefDraft.trim();
+    if (!brief) {
+      setBriefMessage("짧은 업무 브리핑을 먼저 입력해 주세요.");
       return;
     }
 
-    if (!apiKeys.anthropic?.trim()) {
-      setFloatingNotice(T.aiSetupRequired);
-      setIsSettingsOpen(true);
+    if (selectedAgent.status === "waiting_ceo") {
+      setBriefMessage("이 담당자는 아직 CEO 보고 대기 중입니다. 먼저 보고를 받아 주세요.");
       return;
     }
 
-    try {
-      const parsed = parseSrt(selectedProject.srtText);
-      const targetSegments = filterSegmentsByFrequency(parsed, recommendationSettings);
-      setSegments(parsed);
-      setRecommendations([]);
-      setIsClassifying(true);
+    const taskId = crypto.randomUUID();
+    const now = new Date().toISOString();
 
-      const collected: ClaudeRecommendationPayload[] = [];
+    updateProject((project) => ({
+      ...project,
+      tasks: [
+        {
+          id: taskId,
+          title: `${selectedAgent.role} 업무`,
+          brief,
+          assignedAgentId: selectedAgent.id,
+          roomId: selectedAgent.homeRoomId,
+          status: "working",
+          createdAt: now,
+          updatedAt: now
+        },
+        ...project.tasks
+      ],
+      agents: project.agents.map((agent) =>
+        agent.id === selectedAgent.id
+          ? {
+              ...agent,
+              status: "working",
+              currentTaskId: taskId,
+              currentRoomId: agent.homeRoomId,
+              lastBrief: brief
+            }
+          : agent
+      ),
+      managerMemo: `중간 관리자 메모: ${selectedAgent.name}에게 새 업무가 배정되었습니다. '${brief.slice(0, 48)}'`
+    }));
 
-      for (let index = 0; index < targetSegments.length; index += 1) {
-        const segment = targetSegments[index];
-        setBannerMessage(`Claude가 구간 ${segment.id} 분석 중... (${index + 1}/${targetSegments.length})`);
-
-        const response = await fetch("/api/recommendations", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            apiKey: apiKeys.anthropic,
-            segments: [segment],
-            frequencySeconds: recommendationSettings.frequencySeconds
-          })
-        });
-
-        const payload = await parseJsonSafely(response);
-
-        if (!response.ok || !payload.items) {
-          throw new Error(payload.error || `Claude가 ${segment.id} 구간 분석에 실패했습니다.`);
-        }
-
-        if (payload.items[0]) {
-          collected.push(payload.items[0]);
-          setRecommendations(hydrateRecommendations([...collected]));
-          setReviewStep(5);
-        }
-      }
-
-      setReviewStep(5);
-      setBannerMessage(`Claude가 구간별 분석으로 추천 항목 ${collected.length}개를 만들었습니다.`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "AI 자동 분류에 실패했습니다.";
-      setBannerMessage(message);
-      setFloatingNotice(message);
-    } finally {
-      setIsClassifying(false);
-    }
-  }
-  function updateDecision(id: string, decision: RecommendationState["decision"]) {
-    setRecommendations((current) =>
-      current.map((item) =>
-        item.id === id ? { ...item, decision, generated: decision === "excluded" ? false : item.generated } : item
-      )
-    );
+    setBriefMessage("짧은 대화가 끝났고, 담당자가 자기 방으로 돌아가 업무를 시작했습니다.");
+    setBannerMessage(`${selectedAgent.name}이(가) ${selectedAgent.role} 업무를 시작했습니다.`);
   }
 
-  function updateRecommendation(id: string, patch: Partial<RecommendationState>) {
-    setRecommendations((current) =>
-      current.map((item) => {
-        if (item.id !== id) return item;
-        const nextKind = patch.kind ?? item.kind;
-        return { ...item, ...patch, kind: nextKind, label: kindLabelMap[nextKind] };
-      })
-    );
-  }
-
-  function selectAllReviewItems() {
-    setRecommendations((current) =>
-      current.map((item) => (item.decision === "excluded" ? item : { ...item, decision: "selected" }))
-    );
-  }
-
-  function handleGenerateAssets() {
-    const targets = recommendations.filter((item) => item.decision === "selected");
-    if (targets.length === 0) {
-      setBannerMessage("먼저 생성할 추천 항목을 선택해 주세요.");
+  function moveAgentToReport() {
+    if (!selectedProject || !selectedAgent || selectedAgent.status !== "working" || !selectedAgent.currentTaskId) {
+      setBriefMessage("현재 진행 중인 업무가 있을 때만 완료 보고로 넘길 수 있습니다.");
       return;
     }
 
-    setIsGenerating(true);
-    window.setTimeout(() => {
-      setRecommendations((current) =>
-        current.map((item) => (item.decision === "selected" ? { ...item, generated: true } : item))
-      );
-      setIsGenerating(false);
-      setBannerMessage(`선택한 ${targets.length}개 구간에 대해 생성 준비를 마쳤습니다.`);
-    }, 900);
+    const taskId = selectedAgent.currentTaskId;
+    const reportId = crypto.randomUUID();
+    const summary = buildQuickReport(selectedAgent, briefDraft || selectedAgent.lastBrief);
+    const now = new Date().toISOString();
+
+    updateProject((project) => ({
+      ...project,
+      tasks: project.tasks.map((task) =>
+        task.id === taskId ? { ...task, status: "waiting_report", updatedAt: now } : task
+      ),
+      reports: [
+        {
+          id: reportId,
+          taskId,
+          agentId: selectedAgent.id,
+          summary,
+          status: "waiting",
+          createdAt: now
+        },
+        ...project.reports
+      ],
+      agents: project.agents.map((agent) =>
+        agent.id === selectedAgent.id
+          ? {
+              ...agent,
+              status: "waiting_ceo",
+              currentRoomId: "room-ceo"
+            }
+          : agent
+      ),
+      managerMemo: `중간 관리자 메모: ${selectedAgent.name}의 업무가 완료되어 CEO실 앞에서 승인 대기 중입니다.`
+    }));
+
+    setBriefMessage("업무가 완료되었습니다. 이 담당자는 이제 CEO실 앞에서 무한 대기합니다.");
+    setBannerMessage(`${selectedAgent.name}이(가) CEO실 앞으로 이동해 보고를 기다리는 중입니다.`);
   }
 
-  function handleExportXml() {
+  function reviewReport(report: ReportRecord) {
     if (!selectedProject) return;
 
-    const selectedIds = recommendations.filter((item) => item.decision === "selected").map((item) => item.id);
-    if (selectedIds.length === 0) {
-      setBannerMessage("XML로 내보낼 항목이 없습니다.");
-      return;
-    }
+    updateProject((project) => ({
+      ...project,
+      reports: project.reports.map((item) => (item.id === report.id ? { ...item, status: "reviewed" } : item)),
+      tasks: project.tasks.map((task) =>
+        task.id === report.taskId ? { ...task, status: "reported", updatedAt: new Date().toISOString() } : task
+      ),
+      agents: project.agents.map((agent) =>
+        agent.id === report.agentId
+          ? {
+              ...agent,
+              status: "idle",
+              currentRoomId: agent.homeRoomId,
+              currentTaskId: null
+            }
+          : agent
+      ),
+      managerMemo: "중간 관리자 메모: CEO가 보고를 수락했고, 담당자가 원래 자리로 복귀했습니다."
+    }));
 
-    const xml = createXmlExport(segments, selectedIds, recommendations, {
-      variantsPerSegment: Number(variantsPerSegment) || 1,
-      aspectRatio: aspectRatio || "16:9"
-    });
-    const blob = new Blob([xml], { type: "application/xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${selectedProject.name || "premiere-project"}.xml`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setBannerMessage("Premiere용 XML을 다운로드했습니다. 현재 파일은 마커 기반 시퀀스로 가져오게 됩니다.");
+    const agentName = selectedProject.agents.find((agent) => agent.id === report.agentId)?.name ?? "담당자";
+    setBannerMessage(`${agentName}의 보고를 확인했고, 다시 본인 자리로 복귀시켰습니다.`);
   }
 
-  async function handleSignOut() {
-    await signOut();
-    setSelectedProjectId(null);
-    setBannerMessage("로그아웃했습니다.");
+  function getRoomAgents(roomId: string) {
+    return selectedProject?.agents.filter((agent) => agent.currentRoomId === roomId) ?? [];
   }
 
   if (loadingAuth) {
-    return <div className="app-loading">{T.loading}</div>;
+    return <main className="app-loading">{T.loading}</main>;
   }
 
   if (!session) {
@@ -622,7 +430,14 @@ export default function DashboardApp() {
             <span className="hero-title-line">{T.heroLine2}</span>
           </h1>
           <p>{T.authCopy}</p>
+          <div className="hero-chip-row">
+            <span className="hero-chip">Vercel Web</span>
+            <span className="hero-chip">Supabase Auth</span>
+            <span className="hero-chip">Realtime Ready</span>
+            <span className="hero-chip">API Router Ready</span>
+          </div>
         </section>
+
         <section className="auth-card panel-surface">
           <div className="auth-tabs">
             <button className={authMode === "signin" ? "tab active" : "tab"} onClick={() => setAuthMode("signin")}>
@@ -632,7 +447,8 @@ export default function DashboardApp() {
               {T.signup}
             </button>
           </div>
-          <div className="auth-form compact-form">
+
+          <div className="auth-form">
             <label>
               <span>{T.email}</span>
               <input type="email" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} />
@@ -647,6 +463,7 @@ export default function DashboardApp() {
             <p className="auth-message">{authMessage || T.authHint}</p>
             <div className="auth-meta slim-meta">
               <span>{supabaseReady ? `${projectRef || "Supabase"} ${T.ready}` : `${T.settings}: ${missingEnvKeys.join(", ")}`}</span>
+              <span>{`방 ${officeRoomSeeds.length}개, 캐릭터 6명 구조로 시작합니다.`}</span>
             </div>
           </div>
         </section>
@@ -656,39 +473,26 @@ export default function DashboardApp() {
 
   return (
     <main className="workspace-shell">
-      <input ref={fileInputRef} accept=".srt" className="hidden-input" onChange={handleFileChange} type="file" />
-
-      {floatingNotice ? (
-        <div className="floating-notice" onClick={() => setFloatingNotice("")}>{floatingNotice}</div>
-      ) : null}
-
       <aside className="workspace-sidebar panel-surface">
         <div className="sidebar-top">
           <div>
-            <p className="sidebar-kicker">{T.appKicker}</p>
-            <h2>{T.workspace}</h2>
+            <p className="sidebar-kicker">{T.workspace}</p>
+            <h2>Commerce Empire</h2>
           </div>
-          <button className="button button-primary button-block" onClick={handleCreateProject}>
-            {T.newProject}
-          </button>
+          <div className="sidebar-nav">
+            <button className="sidebar-link active">{T.home}</button>
+            <button className="sidebar-link" onClick={() => setIsSettingsOpen(true)}>
+              {T.admin}
+            </button>
+          </div>
         </div>
-
-        <nav className="sidebar-nav panel-nav">
-          <button className={!selectedProjectId ? "sidebar-link active" : "sidebar-link"} onClick={() => setSelectedProjectId(null)}>
-            <span className="sidebar-link-icon">⌂</span>
-            <span>{T.home}</span>
-          </button>
-          {isAdmin ? (
-            <Link className="sidebar-link" href="/admin">
-              <span className="sidebar-link-icon">⚙</span>
-              <span>{T.adminPage}</span>
-            </Link>
-          ) : null}
-        </nav>
 
         <div className="sidebar-section">
           <div className="sidebar-section-header">
-            <span>{T.projects}</span>
+            <strong>{T.projects}</strong>
+            <button className="mini-button" onClick={handleCreateProject}>
+              {T.newProject}
+            </button>
           </div>
           <div className="project-list">
             {projects.length > 0 ? (
@@ -709,328 +513,246 @@ export default function DashboardApp() {
         </div>
 
         <div className="sidebar-footer panel-surface">
+          <p className="sidebar-kicker">{T.currentUser}</p>
           <strong>{session.user.email}</strong>
-          <button className="button button-secondary button-block" onClick={handleSignOut}>
-            {T.logout}
-          </button>
+          <span>{supabaseReady ? "Supabase 연결 준비 완료" : "환경 변수 확인 필요"}</span>
+          <div className="inline-actions">
+            <button className="button button-secondary" onClick={() => setIsSettingsOpen(true)}>
+              {T.settings}
+            </button>
+            <button className="button" onClick={() => void signOut()}>
+              {T.logout}
+            </button>
+          </div>
         </div>
       </aside>
 
       <section className="workspace-main">
-        <div className="topbar">
+        <header className="home-hero panel-surface">
           <div>
-            <p className="section-kicker">{T.workspace}</p>
-            <h1 className="topbar-title">{selectedProject ? selectedProject.name : T.projectHome}</h1>
-          </div>
-          <button aria-label={T.settings} className="icon-button" onClick={() => setIsSettingsOpen(true)}>
-            <span>+</span>
-            <small>{T.settings}</small>
-          </button>
-        </div>
-
-        {!selectedProject ? (
-          <div className="dashboard-stack">
-            <section className="home-hero panel-surface">
-              <div>
-                <p className="section-kicker">{T.projectHome}</p>
-                <h2>{T.homeTitle}</h2>
-                <p>{T.homeCopy}</p>
-              </div>
-              <div className="home-hero-actions">
-                <button className="button button-primary" onClick={handleCreateProject}>
-                  {T.newProject}
-                </button>
-              </div>
-            </section>
-
-            <section className="dashboard-grid compact-grid">
-              <article className="dashboard-card panel-surface">
-                <p className="section-kicker">{T.overview}</p>
-                <h3>{T.allProjects}</h3>
-                <strong>{projects.length}개</strong>
-              </article>
-              <article className="dashboard-card panel-surface">
-                <p className="section-kicker">{T.account}</p>
-                <h3>{T.currentUser}</h3>
-                <strong>{session.user.email}</strong>
-              </article>
-              <article className="dashboard-card panel-surface">
-                <p className="section-kicker">Supabase</p>
-                <h3>{T.connectionState}</h3>
-                <strong>{supabaseReady ? T.ready : T.checkNeeded}</strong>
-              </article>
-            </section>
-          </div>
-        ) : (
-          <div className="project-workboard">
-            <div className="project-main-column">
-              <section className="project-header panel-surface">
-                <div>
-                  <p className="section-kicker">{T.selectedProject}</p>
-                  <input
-                    className="project-title-input"
-                    value={selectedProject.name}
-                    onChange={(event) => updateProject({ name: event.target.value })}
-                  />
-                  <p className="project-subcopy">
-                    {T.recentUpdate} {formatDate(selectedProject.updatedAt)}
-                  </p>
-                  <div className="inline-actions project-manage-actions">
-                    <button className="button button-secondary" onClick={handleProjectRename}>
-                      {T.renameProject}
-                    </button>
-                    <button className="button button-danger" onClick={handleDeleteProject}>
-                      {T.deleteProject}
-                    </button>
-                  </div>
-                </div>
-                <div className="project-header-stats compact-stats minimal-stats">
-                  <div>
-                    <span>{T.segmentCount}</span>
-                    <strong>{segments.length}</strong>
-                  </div>
-                  <div>
-                    <span>{T.selectedCount}</span>
-                    <strong>{selectedCount}</strong>
-                  </div>
-                  <div>
-                    <span>{T.generatedCount}</span>
-                    <strong>{generatedCount}</strong>
-                  </div>
-                </div>
-              </section>
-
-              <section className="project-banner panel-surface">
-                <strong>{T.currentStatus}</strong>
-                <p>{bannerMessage}</p>
-              </section>
-
-              <section className="workflow-section panel-surface">
-                <div className="section-header">
-                  <div>
-                    <p className="section-kicker">{T.srtStep}</p>
-                    <h2>{T.srtInput}</h2>
-                  </div>
-                  <div className="inline-actions">
-                    <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>
-                      {T.fileUpload}
-                    </button>
-                    <button className="button button-secondary" onClick={handleClearSrt}>
-                      {T.clearSrt}
-                    </button>
-                    <button className="button button-primary" onClick={() => setIsSrtModalOpen(true)}>
-                      {T.openSrt}
-                    </button>
-                  </div>
-                </div>
-                <div className="compact-srt-entry">
-                  <strong>{selectedProject.srtText ? T.srtConnected : T.noSrt}</strong>
-                  <p>
-                    {selectedProject.srtText
-                      ? `${segments.length}개 구간이 확인되었습니다. 필요하면 팝업에서 내용을 수정할 수 있습니다.`
-                      : "SRT를 붙여넣거나 파일로 올린 뒤 단계별 검수로 넘어가 주세요."}
-                  </p>
-                </div>
-              </section>
-
-              <section className="workflow-section panel-surface">
-                <div className="section-header">
-                  <div>
-                    <p className="section-kicker">{T.firstReviewStep}</p>
-                    <h2>{T.firstReview}</h2>
-                  </div>
-                  <div className="inline-actions">
-                    <button className="button button-primary" onClick={handleGenerateRecommendations}>
-                      {isClassifying ? "AI 분석 중..." : T.autoClassify}
-                    </button>
-                    {recommendations.length > 0 ? (
-                      <button className="button button-secondary" onClick={() => setReviewStep(3)}>
-                        {T.openSecondReview}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="segment-list">
-                  {segments.length > 0 ? (
-                    segments.map((segment) => (
-                      <div className="segment-card segment-card-wide" key={segment.id}>
-                        <div className="segment-index-row">
-                          <strong>{segment.id}</strong>
-                          <span>
-                            {segment.startTimecode} - {segment.endTimecode}
-                          </span>
-                        </div>
-                        <p>{segment.text}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="empty-inline">SRT를 연결하면 이곳에 타임코드 구간이 표시됩니다.</div>
-                  )}
-                </div>
-              </section>
-
-              <section className="workflow-section panel-surface">
-                <div className="section-header">
-                  <div>
-                    <p className="section-kicker">{T.generationOptions}</p>
-                    <h2>{T.generationOptionsTitle}</h2>
-                  </div>
-                </div>
-                <div className="options-grid">
-                  <label className="settings-block">
-                    <span>{T.recommendationFrequency}</span>
-                    <input value={frequencySeconds} onChange={(event) => setFrequencySeconds(event.target.value)} />
-                    <small>예: 5로 두면 5초마다 1개 정도의 추천 항목만 추립니다.</small>
-                  </label>
-                  <label className="settings-block">
-                    <span>{T.perSegmentVariants}</span>
-                    <input value={variantsPerSegment} onChange={(event) => setVariantsPerSegment(event.target.value)} />
-                    <small>예: 3개로 두면 같은 문장에 대한 결과물이 3개 레이어로 XML에 들어갑니다.</small>
-                  </label>
-                  <label className="settings-block settings-block-wide">
-                    <span>{T.aspectRatio}</span>
-                    <input value={aspectRatio} onChange={(event) => setAspectRatio(event.target.value)} />
-                    <small>예: 16:9, 9:16, 1:1처럼 원하는 비율을 직접 입력할 수 있습니다.</small>
-                  </label>
-                </div>
-              </section>
-
-              {reviewStep >= 3 ? (
-                <section className="workflow-section panel-surface">
-                  <div className="section-header">
-                    <div>
-                      <p className="section-kicker">{T.secondReviewStep}</p>
-                      <h2>{T.secondReview}</h2>
-                    </div>
-                    <button className="button button-secondary" onClick={() => setReviewStep(4)}>
-                      {T.openFinalPrep}
-                    </button>
-                  </div>
-                  <div className="stage-placeholder">
-                    <strong>MOGRT 자막 투입 구간 추천 단계</strong>
-                    <p>현재는 이미지와 영상 후보를 먼저 정리하고, 이후 단계에서 MOGRT 자막 투입 구간을 검수합니다.</p>
-                  </div>
-                </section>
-              ) : null}
-
-              {reviewStep >= 4 ? (
-                <section className="workflow-section panel-surface">
-                  <div className="section-header">
-                    <div>
-                      <p className="section-kicker">{T.finalPrepStep}</p>
-                      <h2>{T.finalPrep}</h2>
-                    </div>
-                    <button className="button button-secondary" onClick={() => setReviewStep(5)}>
-                      {T.openFinalReview}
-                    </button>
-                  </div>
-                  <div className="stage-placeholder">
-                    <strong>오른쪽 검수판에서 항목별 형식과 설명을 개별 수정할 수 있습니다.</strong>
-                    <p>대본 문장과 추천 설명의 배경을 분리해서 더 헷갈리지 않도록 정리했습니다.</p>
-                  </div>
-                </section>
-              ) : null}
+            <p className="section-kicker">Office Simulation</p>
+            <h2>{selectedProject?.name ?? "오피스 운영실"}</h2>
+            <p>
+              캐릭터를 클릭해서 짧게 대화하고 업무를 시작시키세요. 완료되면 CEO실로 이동해 보고 대기하고, 보고를 받으면 다시 본인 자리로 돌아갑니다.
+            </p>
+            <div className="hero-chip-row">
+              <span className="hero-chip">{selectedProject?.companyName ?? "Commerce Empire"}</span>
+              <span className="hero-chip">{`CEO ${selectedProject?.ceoName ?? "대표"}`}</span>
+              <span className="hero-chip">{`대기 보고 ${waitingReports.length}건`}</span>
             </div>
+          </div>
+          <div className="hero-stats">
+            <article className="dashboard-card panel-surface">
+              <p className="section-kicker">Reports</p>
+              <h3>CEO실 대기</h3>
+              <strong>{waitingReports.length}</strong>
+            </article>
+            <article className="dashboard-card panel-surface">
+              <p className="section-kicker">Agents</p>
+              <h3>작업 중 인원</h3>
+              <strong>{selectedProject?.agents.filter((agent) => agent.status === "working").length ?? 0}</strong>
+            </article>
+            <article className="dashboard-card panel-surface">
+              <p className="section-kicker">API</p>
+              <h3>{T.connectionState}</h3>
+              <strong>{Object.values(apiKeys).filter(Boolean).length}</strong>
+            </article>
+          </div>
+        </header>
 
-            <aside className="review-column panel-surface">
-              <div className="section-header review-header">
+        <section className="project-banner panel-surface">
+          <strong>실시간 운영 메모</strong>
+          <p>{bannerMessage}</p>
+        </section>
+
+        {selectedProject ? (
+          <div className="office-dashboard-grid">
+            <section className="workflow-section panel-surface">
+              <div className="section-header">
                 <div>
-                  <p className="section-kicker">{T.finalReviewStep}</p>
-                  <h2>{T.finalReview}</h2>
-                </div>
-                <div className="inline-actions review-header-actions">
-                  <button className="button" onClick={selectAllReviewItems} disabled={reviewStep < 5 || reviewItems.length === 0}>
-                    {T.selectAll}
-                  </button>
-                  <button className="button button-secondary" disabled={isGenerating || reviewStep < 5} onClick={handleGenerateAssets}>
-                    {isGenerating ? T.generating : T.generateAll}
-                  </button>
-                  <button className="button button-primary" disabled={reviewStep < 5} onClick={handleExportXml}>
-                    {T.downloadXml}
-                  </button>
+                  <p className="section-kicker">Office Layout</p>
+                  <h2>방 배치와 현재 인원</h2>
                 </div>
               </div>
-
-              {reviewStep < 5 && reviewItems.length === 0 ? (
-                <div className="review-empty">
-                  <strong>최종 검수 단계가 아직 열리지 않았습니다.</strong>
-                  <p>왼쪽에서 2차 검수와 최종 검수 준비 단계를 차례대로 열어 주세요.</p>
-                </div>
-              ) : reviewItems.length > 0 ? (
-                <div className="review-list">
-                  {reviewItems.map((item) => (
-                    <article className="recommendation-panel recommendation-panel-strong" key={item.id}>
-                      <div className="recommendation-topline">
-                        <span className={`badge ${kindClassMap[item.kind]}`}>{item.label}</span>
-                        <span>{item.timecode}</span>
-                      </div>
-                      <h3>{item.title}</h3>
-                      <div className="recommendation-body-grid">
-                        <div className="source-block">
-                          <span className="meta-label">{T.sourceSentence}</span>
-                          <p>{segments.find((segment) => segment.id === item.segmentId)?.text ?? item.title}</p>
-                        </div>
-                        <div className="recommend-block">
-                          <span className="meta-label">{T.recommendationDesc}</span>
-                          <label className="settings-block compact-field">
-                            <span>{T.kind}</span>
-                            <select
-                              value={item.kind}
-                              onChange={(event) => updateRecommendation(item.id, { kind: event.target.value as RecommendationKind })}
-                            >
-                              <option value="image_real">{T.realImage}</option>
-                              <option value="image_illustration">{T.illustration}</option>
-                              <option value="video">{T.video}</option>
-                            </select>
-                          </label>
-                          <label className="settings-block compact-field">
-                            <span>{T.visualCue}</span>
-                            <textarea
-                              className="inline-textarea"
-                              value={item.visualCue}
-                              onChange={(event) => updateRecommendation(item.id, { visualCue: event.target.value })}
-                            />
-                          </label>
-                          <label className="settings-block compact-field">
-                            <span>{T.prompt}</span>
-                            <textarea
-                              className="inline-textarea"
-                              value={item.prompt}
-                              onChange={(event) => updateRecommendation(item.id, { prompt: event.target.value })}
-                            />
-                          </label>
-                        </div>
-                      </div>
-                      <div className="recommendation-actions">
-                        <button
-                          className={item.decision === "selected" ? "button button-primary" : "button button-secondary"}
-                          onClick={() => updateDecision(item.id, item.decision === "selected" ? "pending" : "selected")}
-                        >
-                          {item.decision === "selected" ? T.selected : T.select}
-                        </button>
-                        <button className="button" onClick={() => updateDecision(item.id, "excluded")}>
-                          {T.exclude}
-                        </button>
-                      </div>
-                      <div className="recommendation-footer">
-                        <span>{item.generated ? T.readyToGenerate : T.beforeGeneration}</span>
-                        <span>
-                          {T.segmentLabel} {item.segmentId}
-                        </span>
+              <div className="office-layout">
+                {selectedProject.rooms.map((room) => {
+                  const roomAgents = getRoomAgents(room.id);
+                  return (
+                    <article className={`office-room ${room.id === "room-ceo" ? "office-room-ceo" : ""}`} key={room.id}>
+                      <span className="office-room-label">{room.title}</span>
+                      <p>{room.copy}</p>
+                      <div className="room-occupants">
+                        {roomAgents.length > 0 ? (
+                          roomAgents.map((agent) => (
+                            <span className="occupant-pill" key={agent.id}>
+                              {agent.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="occupant-empty">비어 있음</span>
+                        )}
                       </div>
                     </article>
-                  ))}
+                  );
+                })}
+              </div>
+              <div className="flow-strip">
+                <span>업무 브리핑</span>
+                <span>방 이동</span>
+                <span>작업중</span>
+                <span>CEO실 도착</span>
+                <span>보고 후 복귀</span>
+              </div>
+            </section>
+
+            <section className="workflow-section panel-surface">
+              <div className="section-header">
+                <div>
+                  <p className="section-kicker">Character Cast</p>
+                  <h2>담당자 배치</h2>
                 </div>
-              ) : (
-                <div className="review-empty">
-                  <strong>{T.recommendationEmpty}</strong>
-                  <p>Claude API 키를 연결한 뒤 `{T.autoClassify}`를 누르면 이 영역에 결과가 채워집니다.</p>
+              </div>
+              <div className="agent-board">
+                {selectedProject.agents.map((agent) => (
+                  <article className="agent-card agent-card-button" key={agent.id} style={getAgentCardStyle(agent.accent)}>
+                    <button className="agent-card-ghost" onClick={() => setSelectedAgentId(agent.id)} />
+                    <div className="agent-card-top">
+                      <div className="pixel-avatar">
+                        <div className={`pixel-avatar-hair ${agent.hairClass}`} />
+                        <div className="pixel-avatar-face" />
+                        <div className={`pixel-avatar-body ${agent.outfitClass}`} />
+                        <div className="pixel-avatar-paper" />
+                      </div>
+                      <div className="agent-heading">
+                        <strong>{agent.name}</strong>
+                        <span>{agent.role}</span>
+                        <span className={`status-pill status-${agent.status}`}>{agent.status}</span>
+                      </div>
+                    </div>
+                    <p className="agent-tone">{agent.tone}</p>
+                    <p>{agent.specialty}</p>
+                    <div className="agent-meta">
+                      <span>{`${agent.provider} / ${agent.model}`}</span>
+                      <span>{`현재 위치: ${
+                        selectedProject.rooms.find((room) => room.id === agent.currentRoomId)?.title ?? "이동 중"
+                      }`}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="workflow-section panel-surface">
+              <div className="section-header">
+                <div>
+                  <p className="section-kicker">CEO Inbox</p>
+                  <h2>보고 대기열</h2>
                 </div>
-              )}
-            </aside>
+              </div>
+              <div className="report-list">
+                {waitingReports.length > 0 ? (
+                  waitingReports.map((report) => {
+                    const agent = selectedProject.agents.find((item) => item.id === report.agentId);
+                    return (
+                      <article className="report-card" key={report.id}>
+                        <div>
+                          <strong>{agent?.name ?? "담당자"}</strong>
+                          <p>{report.summary}</p>
+                          <span>{formatDate(report.createdAt)}</span>
+                        </div>
+                        <button className="button button-primary" onClick={() => reviewReport(report)}>
+                          보고 받기
+                        </button>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <div className="empty-inline">아직 CEO실 앞에서 대기 중인 보고가 없습니다.</div>
+                )}
+              </div>
+            </section>
+
+            <section className="workflow-section panel-surface">
+              <div className="section-header">
+                <div>
+                  <p className="section-kicker">Middle Manager</p>
+                  <h2>중간 관리자 메모리</h2>
+                </div>
+              </div>
+              <div className="manager-panel">
+                <article className="manager-card">
+                  <strong>현재 메모</strong>
+                  <p>{selectedProject.managerMemo}</p>
+                </article>
+                <article className="manager-card">
+                  <strong>개선 제안</strong>
+                  <div className="manager-suggestions">
+                    {managerSuggestions.map((suggestion) => (
+                      <span className="manager-suggestion" key={suggestion}>
+                        {suggestion}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              </div>
+            </section>
           </div>
-        )}
+        ) : null}
       </section>
+
+      {selectedAgent && selectedProject ? (
+        <div className="modal-backdrop" onClick={() => setSelectedAgentId(null)}>
+          <div className="modal-panel panel-surface" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="section-kicker">Agent Briefing</p>
+                <h2>{`${selectedAgent.name} · ${selectedAgent.role}`}</h2>
+              </div>
+              <button className="button button-secondary" onClick={() => setSelectedAgentId(null)}>
+                {T.close}
+              </button>
+            </div>
+
+            <div className="agent-modal-stack">
+              <div className="agent-modal-summary">
+                <span className={`status-pill status-${selectedAgent.status}`}>{selectedAgent.status}</span>
+                <p>{selectedAgent.specialty}</p>
+                <small>{`${selectedAgent.provider} / ${selectedAgent.model}`}</small>
+              </div>
+
+              <div className="brief-template-row">
+                {quickBriefTemplates.map((template) => (
+                  <button className="button button-secondary brief-template-button" key={template} onClick={() => setBriefDraft(template)}>
+                    {template}
+                  </button>
+                ))}
+              </div>
+
+              <label className="settings-block">
+                <span>짧은 대화 후 업무 브리핑</span>
+                <textarea
+                  className="editor-textarea agent-brief-textarea"
+                  placeholder="예: 오늘 들어온 주문 메일을 읽고 누락 발주와 일정 꼬임을 먼저 찾아줘."
+                  value={briefDraft}
+                  onChange={(event) => setBriefDraft(event.target.value)}
+                />
+                <small>나중에 여기에 실제 API 호출 프롬프트와 라우팅 규칙을 연결하면 됩니다.</small>
+              </label>
+
+              <div className="agent-modal-actions">
+                <button className="button button-primary" onClick={startAgentTask}>
+                  업무 시작
+                </button>
+                <button className="button button-secondary" onClick={moveAgentToReport}>
+                  완료 보고 올리기
+                </button>
+              </div>
+
+              <p className="auth-message">{briefMessage || "캐릭터를 짧게 브리핑한 뒤 업무를 시작시키거나 완료 보고로 넘길 수 있습니다."}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isSettingsOpen ? (
         <div className="modal-backdrop" onClick={() => setIsSettingsOpen(false)}>
@@ -1038,7 +760,7 @@ export default function DashboardApp() {
             <div className="modal-header">
               <div>
                 <p className="section-kicker">{T.settings}</p>
-                <h2>{T.providerKeys}</h2>
+                <h2>캐릭터별 API 연결 준비</h2>
               </div>
               <button className="button button-secondary" onClick={() => setIsSettingsOpen(false)}>
                 {T.close}
@@ -1059,6 +781,7 @@ export default function DashboardApp() {
               ))}
             </div>
             <div className="modal-footer settings-modal-footer">
+              <span>지금은 브라우저 로컬 저장으로 유지하고, 다음 단계에서 Supabase 비밀 저장소나 서버 라우터로 옮기면 됩니다.</span>
               <button className="button button-primary" onClick={() => setIsSettingsOpen(false)}>
                 {T.save}
               </button>
@@ -1066,48 +789,6 @@ export default function DashboardApp() {
           </div>
         </div>
       ) : null}
-
-      {isSrtModalOpen && selectedProject ? (
-        <div className="modal-backdrop" onClick={() => setIsSrtModalOpen(false)}>
-          <div className="modal-panel modal-panel-wide panel-surface" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <p className="section-kicker">{T.srtInput}</p>
-                <h2>{selectedProject.name}</h2>
-              </div>
-              <div className="inline-actions">
-                <button className="button button-secondary" onClick={() => fileInputRef.current?.click()}>
-                  {T.upload}
-                </button>
-                <button className="button button-secondary" onClick={handleClearSrt}>
-                  {T.clearSrt}
-                </button>
-                <button className="button button-primary" onClick={applySrtText}>
-                  {T.save}
-                </button>
-              </div>
-            </div>
-            <textarea
-              className="editor-textarea editor-textarea-large"
-              placeholder="SRT 내용을 붙여넣어 주세요."
-              value={selectedProject.srtText}
-              onChange={(event) => updateProjectSrtText(event.target.value)}
-            />
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-

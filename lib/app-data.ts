@@ -1,12 +1,68 @@
-﻿import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient, tryCreateSupabaseBrowserClient } from "./supabase/client";
+import { agentSeeds, officeRoomSeeds } from "./mock-data";
+
+export type AgentStatus = "idle" | "working" | "waiting_ceo";
+export type TaskStatus = "queued" | "working" | "waiting_report" | "reported";
+export type ReportStatus = "waiting" | "reviewed";
+
+export interface RoomRecord {
+  id: string;
+  title: string;
+  copy: string;
+  zone: "ops" | "exec";
+}
+
+export interface AgentRecord {
+  id: string;
+  name: string;
+  role: string;
+  tone: string;
+  specialty: string;
+  provider: string;
+  model: string;
+  accent: string;
+  hairClass: string;
+  outfitClass: string;
+  homeRoomId: string;
+  currentRoomId: string;
+  status: AgentStatus;
+  currentTaskId: string | null;
+  lastBrief: string;
+}
+
+export interface TaskRecord {
+  id: string;
+  title: string;
+  brief: string;
+  assignedAgentId: string;
+  roomId: string;
+  status: TaskStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReportRecord {
+  id: string;
+  taskId: string;
+  agentId: string;
+  summary: string;
+  status: ReportStatus;
+  createdAt: string;
+}
 
 export interface ProjectRecord {
   id: string;
   name: string;
   createdAt: string;
   updatedAt: string;
-  srtText: string;
+  companyName: string;
+  ceoName: string;
+  rooms: RoomRecord[];
+  agents: AgentRecord[];
+  tasks: TaskRecord[];
+  reports: ReportRecord[];
+  managerMemo: string;
 }
 
 function authCallbackUrl() {
@@ -71,19 +127,25 @@ export function subscribeToAuthChanges(callback: (event: AuthChangeEvent, sessio
 }
 
 function projectStorageKey(email: string) {
-  return `premiere-projects:${email.toLowerCase()}`;
+  return `commerce-empire-projects:${email.toLowerCase()}`;
 }
 
-function normalizeProjectName(name: string, index: number) {
-  if (!name) {
-    return `프로젝트 ${index + 1}`;
-  }
+function nowIso() {
+  return new Date().toISOString();
+}
 
-  if (/^new project\s*\d*$/i.test(name.trim()) || /^sample project$/i.test(name.trim())) {
-    return `프로젝트 ${index + 1}`;
-  }
+function createSeedAgents(): AgentRecord[] {
+  return agentSeeds.map((agent) => ({
+    ...agent,
+    currentRoomId: agent.homeRoomId,
+    status: "idle",
+    currentTaskId: null,
+    lastBrief: ""
+  }));
+}
 
-  return name;
+function createSeedRooms(): RoomRecord[] {
+  return officeRoomSeeds.map((room) => ({ ...room }));
 }
 
 export function loadProjects(email: string) {
@@ -98,10 +160,7 @@ export function loadProjects(email: string) {
   }
 
   try {
-    return (JSON.parse(raw) as ProjectRecord[]).map((project, index) => ({
-      ...project,
-      name: normalizeProjectName(project.name, index)
-    }));
+    return JSON.parse(raw) as ProjectRecord[];
   } catch {
     return [] as ProjectRecord[];
   }
@@ -116,23 +175,89 @@ export function saveProjects(email: string, projects: ProjectRecord[]) {
 }
 
 export function createEmptyProject(name: string): ProjectRecord {
-  const now = new Date().toISOString();
+  const now = nowIso();
+
   return {
     id: crypto.randomUUID(),
     name,
     createdAt: now,
     updatedAt: now,
-    srtText: ""
+    companyName: "Commerce Empire",
+    ceoName: "대표",
+    rooms: createSeedRooms(),
+    agents: createSeedAgents(),
+    tasks: [],
+    reports: [],
+    managerMemo: "중간 관리자가 아직 첫 업무를 기다리는 중입니다."
   };
 }
 
-export function createSampleProject() {
-  const now = new Date().toISOString();
-  return {
-    id: crypto.randomUUID(),
-    name: "프로젝트 샘플",
-    createdAt: now,
-    updatedAt: now,
-    srtText: `1\n00:00:02,000 --> 00:00:05,200\nThis feature can reduce editing time significantly.\n\n2\n00:00:05,800 --> 00:00:09,000\nAn illustration style works well for the example screen.\n\n3\n00:00:09,300 --> 00:00:13,000\nA short motion clip explains the final result more clearly.`
-  } satisfies ProjectRecord;
+export function createSampleProject(): ProjectRecord {
+  const project = createEmptyProject("커머스 운영본부");
+  const now = nowIso();
+
+  const firstTaskId = crypto.randomUUID();
+  const secondTaskId = crypto.randomUUID();
+
+  project.tasks = [
+    {
+      id: firstTaskId,
+      title: "신규 주문 누락 점검",
+      brief: "메일함과 발주서를 비교해 누락 주문을 찾아줘.",
+      assignedAgentId: "agent-order",
+      roomId: "room-order",
+      status: "working",
+      createdAt: now,
+      updatedAt: now
+    },
+    {
+      id: secondTaskId,
+      title: "OCR 검수 결과 보고",
+      brief: "이미지 옵션 OCR 결과를 검수하고 대표 오차만 요약해줘.",
+      assignedAgentId: "agent-ocr",
+      roomId: "room-ocr",
+      status: "waiting_report",
+      createdAt: now,
+      updatedAt: now
+    }
+  ];
+
+  project.agents = project.agents.map((agent) => {
+    if (agent.id === "agent-order") {
+      return {
+        ...agent,
+        status: "working",
+        currentTaskId: firstTaskId,
+        lastBrief: "메일함과 발주서를 비교해 누락 주문을 찾아줘."
+      };
+    }
+
+    if (agent.id === "agent-ocr") {
+      return {
+        ...agent,
+        status: "waiting_ceo",
+        currentTaskId: secondTaskId,
+        currentRoomId: "room-ceo",
+        lastBrief: "이미지 옵션 OCR 결과를 검수하고 대표 오차만 요약해줘."
+      };
+    }
+
+    return agent;
+  });
+
+  project.reports = [
+    {
+      id: crypto.randomUUID(),
+      taskId: secondTaskId,
+      agentId: "agent-ocr",
+      summary: "OCR 오인식 8건을 추려냈고, 옵션명 표기 규칙을 통일하면 재발을 줄일 수 있습니다.",
+      status: "waiting",
+      createdAt: now
+    }
+  ];
+
+  project.managerMemo =
+    "현재 병목은 OCR 검수실입니다. 보고 대기 1건이 CEO 승인 전까지 멈춰 있으니, 먼저 보고를 받아 흐름을 다시 열어주는 것이 좋습니다.";
+
+  return project;
 }
