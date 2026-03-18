@@ -131,6 +131,14 @@ const corridorSpots: OfficeMapSpot[] = [
   { left: "72%", top: "90%", lane: "lower" }
 ];
 
+type CeoFacing = "front" | "side" | "back";
+
+const ceoSpritePaths: Record<CeoFacing, string> = {
+  front: "/sprites/ceo-front.png",
+  side: "/sprites/ceo-side.png",
+  back: "/sprites/ceo-back.png"
+};
+
 function buildManagerSuggestions(project: ProjectRecord) {
   const waitingReports = project.reports.filter((report) => report.status === "waiting").length;
   const workingAgents = project.agents.filter((agent) => agent.status === "working").length;
@@ -218,6 +226,7 @@ export default function DashboardApp() {
     () => (selectedProject ? buildManagerSuggestions(selectedProject) : []),
     [selectedProject]
   );
+  const ceoFacing: CeoFacing = waitingReports.length > 0 ? "side" : "front";
   const mapAgents = useMemo(() => {
     if (!selectedProject) {
       return [];
@@ -694,6 +703,14 @@ export default function DashboardApp() {
                   <article className="map-room map-room-ceo">
                     <span className="map-room-name">CEO실</span>
                     <div className="map-room-furniture map-room-furniture-ceo" />
+                    <div
+                      className={`office-ceo-sprite office-ceo-sprite-${ceoFacing}`}
+                      style={
+                        {
+                          "--ceo-sprite-url": `url('${ceoSpritePaths[ceoFacing]}')`
+                        } as CSSProperties
+                      }
+                    />
                   </article>
                 </div>
 
